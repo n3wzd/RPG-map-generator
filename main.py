@@ -1,26 +1,145 @@
 import random
+from collections import deque
 
 map_width = 45
 map_height = 45
-room_min_size = 8
-room_max_size = 12
-map_padding = 2  # 맵 바깥 경계 타일 개수
+room_min_size = 10
+room_max_size = 18
+map_padding = 2  # 맵 바깥 경계 타일 개수 (최소값 1)
 room_min_padding = 1  # 룸 최소 내부 간격
 room_max_padding = 1  # 룸 최대 내부 간격
-merge_room_max_gap = 3  # 룸 연결 기준
-
-dungeon_map = [['.' for _ in range(map_width)] for _ in range(map_height)]
-room_list = []
-room_gen_id = 1
+corridor_wide = 2  # 추가 통로 너비
+wall_height = 2  # 벽 높이
 
 
 class Room:
 
-  def __init__(self, x1, y1, x2, y2):
+  def __init__(self, x1, y1, x2, y2, id):
     self.x1 = x1
     self.y1 = y1
     self.x2 = x2
     self.y2 = y2
+    self.id = id
+
+
+class Dungeon:
+
+  def __init__(self):
+    self.map = [['.' for _ in range(map_width)] for _ in range(map_height)]
+    self.room_graph = []
+    self.room_list = []
+
+  def generate_room(self, x1, y1, x2, y2):
+    padding = random.randint(room_min_padding, room_max_padding)
+    x1 += padding
+    x2 -= padding
+    y1 += padding
+    y2 -= padding
+
+    room = Room(x1, y1, x2, y2, len(self.room_list))
+    for y in range(y1, y2):
+      for x in range(x1, x2):
+        self.map[y][x] = str(0)
+    self.room_list.append(room)
+
+  def generate_graph(self):
+    R = self.room_list
+    self.room_graph = [[0 for _ in range(len(R))] for _ in range(len(R))]
+
+    for i in range(len(R)):
+      for j in range(len(R)):
+        if i != j:
+          dist = rect_distance(R[i], R[j])
+          self.room_graph[j][i] = self.room_graph[i][j] = dist
+
+  def connect_rooms(self):
+    dist = self.room_graph
+    min_dist = floyd_warshall(self.room_graph)
+
+    for i in range(len(dist)):
+      for j in range(i + 1, len(dist)):
+        if dist[i][j] == min_dist[i][j]:
+          self.make_corridor(i, j)
+
+  def make_corridor(self, i, j):
+    cw, wh = corridor_wide, wall_height
+    r1, r2 = self.room_list[i], self.room_list[j]
+    cx1 = random.randrange(r1.x1 + cw, r1.x2 - cw)
+    cy1 = random.randrange(r1.y1 + cw + wh, r1.y2 - cw)
+    cx2 = random.randrange(r2.x1 + cw, r2.x2 - cw)
+    cy2 = random.randrange(r2.y1 + cw + wh, r2.y2 - cw)
+    dire = random.randint(0, 1)
+
+    for x in range(min(cx1, cx2 + 1) - cw, max(cx1, cx2 + 1) + cw):
+      by = cy1 if dire == 0 else cy2
+      for y in range(by - cw - wh, by + cw + 1):
+        self.map[y][x] = '0'
+    for y in range(min(cy1, cy2 + 1) - cw - wh, max(cy1, cy2 + 1) + cw):
+      bx = cx2 if dire == 0 else cx1
+      for x in range(bx - cw, bx + cw + 1):
+        self.map[y][x] = '0'
+
+  def make_ceil(self):
+    r = self.room_list[0]
+    visited = set()
+    queue = deque([(r.x1, r.y1)])
+    visited.add((r.x1, r.y1))
+    dire = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (1, -1), (-1, -1),
+            (-1, 1)]
+    ceil_set = set()
+
+    while queue:
+      x, y = queue.popleft()
+      isCeil = False
+
+      for d in dire:
+        nx, ny = x + d[0], y + d[1]
+        nv = self.map[ny][nx]
+        isCeil = isCeil or nv == '.'
+
+        if (nx, ny) not in visited and nv != '.':
+          visited.add((nx, ny))
+          queue.append((nx, ny))
+
+      if isCeil:
+        self.map[y][x] = '2'
+        ceil_set.add((x, y))
+
+    for x, y in ceil_set:
+      self.make_wall(x, y)
+
+  def make_wall(self, x, y):
+    if self.map[y + 1][x] == '0':
+      for dy in range(1, wall_height + 1):
+        self.map[y + dy][x] = '1'
+
+  def print_map(self):
+    for row in self.map:
+      print(" ".join(map(str, row)))
+
+
+def rect_distance(a, b):
+  x_dist = max(0, b.x1 - a.x2, a.x1 - b.x2)
+  y_dist = max(0, b.y1 - a.y2, a.y1 - b.y2)
+
+  if x_dist == 0:
+    return y_dist
+  elif y_dist == 0:
+    return x_dist
+  else:
+    return x_dist + y_dist + 1
+
+
+def floyd_warshall(graph):
+  n = len(graph)
+  dist = [row[:] for row in graph]
+
+  for k in range(n):
+    for i in range(n):
+      for j in range(n):
+        dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])
+
+  return dist
 
 
 def define_separator(a, b):
@@ -44,17 +163,7 @@ def define_separator_per(x1, y1, x2, y2):
   return 1 / (b - a) if p <= q else 1 / (b - a - d) * 2
 
 
-def generate_room(dungeon_map, x1, y1, x2, y2):
-  global room_list, room_gen_id
-  padding = random.randint(room_min_padding, room_max_padding)
-  for y in range(y1 + padding, y2 - padding):
-    for x in range(x1 + padding, x2 - padding):
-      dungeon_map[y][x] = room_gen_id
-  room_list.append(Room(x1, y1, x2, y2))
-  room_gen_id += 1
-
-
-def generate_map(dungeon_map, x1, y1, x2, y2):
+def generate_map(dungeon, x1, y1, x2, y2):
   room_width = x2 - x1
   room_height = y2 - y1
 
@@ -63,40 +172,28 @@ def generate_map(dungeon_map, x1, y1, x2, y2):
 
   if (room_width <= room_max_size and room_height <= room_max_size
       and random.random() < define_separator_per(x1, y1, x2, y2)):
-    generate_room(dungeon_map, x1, y1, x2, y2)
+    dungeon.generate_room(x1, y1, x2, y2)
     return
 
   if (random.random() < 0.5
       if room_width == room_height else room_height < room_width):
     cx = define_separator(x1, x2)
-    generate_map(dungeon_map, x1, y1, cx, y2)
-    generate_map(dungeon_map, cx, y1, x2, y2)
+    generate_map(dungeon, x1, y1, cx, y2)
+    generate_map(dungeon, cx, y1, x2, y2)
   else:
     cy = define_separator(y1, y2)
-    generate_map(dungeon_map, x1, y1, x2, cy)
-    generate_map(dungeon_map, x1, cy, x2, y2)
+    generate_map(dungeon, x1, y1, x2, cy)
+    generate_map(dungeon, x1, cy, x2, y2)
 
 
-def make_corridor(dungeon_map, room_list):
-  for i in range(len(room_list) - 1):
-    r1, r2 = room_list[i], room_list[i + 1]
-    cx1, cy1 = (r1.x1 + r1.x2) // 2, (r1.y1 + r1.y2) // 2
-    cx2, cy2 = (r2.x1 + r2.x2) // 2, (r2.y1 + r2.y2) // 2
-
-    for x in range(cx1, cx2):
-      dungeon_map[cy1][x] = 0
-      dungeon_map[cy2][x] = 0
-    for y in range(cy1, cy2):
-      dungeon_map[y][cx1] = 0
-      dungeon_map[y][cx2] = 0
+def main():
+  mp = map_padding
+  dungeon = Dungeon()
+  generate_map(dungeon, mp, mp, map_width - mp, map_height - mp)
+  dungeon.generate_graph()
+  dungeon.connect_rooms()
+  dungeon.make_ceil()
+  dungeon.print_map()
 
 
-def print_map(dungeon_map):
-  for row in dungeon_map:
-    print(" ".join(map(str, row)))
-
-
-generate_map(dungeon_map, map_padding, map_padding, map_width - map_padding,
-             map_height - map_padding)
-make_corridor(dungeon_map, room_list)
-print_map(dungeon_map)
+main()
