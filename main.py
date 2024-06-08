@@ -1,6 +1,8 @@
 import random
 from collections import deque
+import module
 
+# 파라미터
 map_width = 45
 map_height = 45
 room_min_size = 10
@@ -8,18 +10,27 @@ room_max_size = 18
 map_padding = 2  # 맵 바깥 경계 타일 개수 (최소값 1)
 room_min_padding = 1  # 룸 최소 내부 간격
 room_max_padding = 1  # 룸 최대 내부 간격
-corridor_wide = 2  # 추가 통로 너비
+corridor_wide = 2  # 통로 너비
 wall_height = 2  # 벽 높이
 
-
-class Room:
-
-  def __init__(self, x1, y1, x2, y2, id):
-    self.x1 = x1
-    self.y1 = y1
-    self.x2 = x2
-    self.y2 = y2
-    self.id = id
+# 타일 종류
+tile_floor = module.Tile('0')
+tile_wall = module.Tile('1')
+tile_ceil = module.Tile('2')
+tile_floor_deco = [
+    module.Tile('A', 0.1, [module.TileCondition('B', (0, -1), 1.0)]),
+    module.Tile('B', 0.1, [module.TileCondition('A', (0, 1), 1.0)]),
+    module.Tile('C', 0.2, [
+        module.TileCondition('1', (1, 0), 0.75),
+        module.TileCondition('1', (-1, 0), 0.75),
+        module.TileCondition('1', (0, 1), 0.75),
+        module.TileCondition('1', (0, -1), 0.75)
+    ]),
+    module.Tile('D', 0.15),
+]
+tile_wall_deco = [
+    module.Tile('E', 0.25),
+]
 
 
 class Dungeon:
@@ -36,7 +47,7 @@ class Dungeon:
     y1 += padding
     y2 -= padding
 
-    room = Room(x1, y1, x2, y2, len(self.room_list))
+    room = module.Room(x1, y1, x2, y2, len(self.room_list))
     for y in range(y1, y2):
       for x in range(x1, x2):
         self.map[y][x] = str(0)
@@ -73,11 +84,11 @@ class Dungeon:
     for x in range(min(cx1, cx2 + 1) - cw, max(cx1, cx2 + 1) + cw):
       by = cy1 if dire == 0 else cy2
       for y in range(by - cw - wh, by + cw + 1):
-        self.map[y][x] = '0'
+        self.map[y][x] = tile_floor.id
     for y in range(min(cy1, cy2 + 1) - cw - wh, max(cy1, cy2 + 1) + cw):
       bx = cx2 if dire == 0 else cx1
       for x in range(bx - cw, bx + cw + 1):
-        self.map[y][x] = '0'
+        self.map[y][x] = tile_floor.id
 
   def make_ceil(self):
     r = self.room_list[0]
@@ -102,16 +113,34 @@ class Dungeon:
           queue.append((nx, ny))
 
       if isCeil:
-        self.map[y][x] = '2'
+        self.map[y][x] = tile_ceil.id
         ceil_set.add((x, y))
 
     for x, y in ceil_set:
       self.make_wall(x, y)
 
   def make_wall(self, x, y):
-    if self.map[y + 1][x] == '0':
+    if self.map[y + 1][x] == tile_floor.id:
       for dy in range(1, wall_height + 1):
-        self.map[y + dy][x] = '1'
+        self.map[y + dy][x] = tile_wall.id
+
+  def count_neighbors(self, x, y, target):
+    count = 0
+    for dy in [-1, 0, 1]:
+      for dx in [-1, 0, 1]:
+        if dx == 0 and dy == 0:
+          continue
+        if self.map[y + dy][x + dx] == target:
+          count += 1
+    return count
+
+  def place_decorations(self, tile):
+    pd = map_padding
+    for y in range(pd, map_height - pd):
+      for x in range(pd, map_width - pd):
+        if self.map[y][x] == tile_floor.id and random.random(
+        ) < tile.init_prob:
+          self.map[y][x] = tile.id
 
   def print_map(self):
     for row in self.map:
@@ -193,6 +222,8 @@ def main():
   dungeon.generate_graph()
   dungeon.connect_rooms()
   dungeon.make_ceil()
+  for tile in tile_floor_deco:
+    dungeon.place_decorations(tile)
   dungeon.print_map()
 
 
