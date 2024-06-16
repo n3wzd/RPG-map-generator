@@ -13,6 +13,10 @@ class Conf:
         self.dy = dire[1]
 
 
+tile_size = 48  # px
+
+
+# Tile List
 blank = '.'
 floor = '0'
 wall = '1'
@@ -24,7 +28,7 @@ data_prob = {
         (0, 0): [
             Prob('A', 0.005),
             Prob('C', 0.002),
-            Prob('D', 0.02),
+            Prob('D', 0.0075),
         ],
     },
     wall: {

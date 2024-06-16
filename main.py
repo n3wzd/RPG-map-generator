@@ -2,6 +2,7 @@ import random
 from collections import deque
 import tile_rule as tile
 import map_to_image as image
+import tile_maker as tile_maker
 
 # Parameter
 map_width = 45
@@ -238,4 +239,6 @@ def main():
   image.process(dungeon.map)
 
 
-main()
+# main()
+
+tile_maker.main()

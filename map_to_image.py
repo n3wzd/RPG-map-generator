@@ -1,13 +1,20 @@
 from PIL import Image
 import tile_rule as tile
 
-tile_size = 104  # px
-
+tile_size = tile.tile_size
+"""
 data = {
+    tile.blank: Image.open('resource/blank.png'),
     tile.floor: Image.open('resource/floor.png'),
     tile.wall: Image.open('resource/wall.png'),
     tile.ceil: Image.open('resource/ceil.png'),
+    'A': Image.open('resource/A.png'),
+    'B': Image.open('resource/B.png'),
+    'C': Image.open('resource/C.png'),
+    'D': Image.open('resource/D.png'),
+    'E': Image.open('resource/E.png'),
 }
+
 
 
 def process(map):
@@ -21,3 +28,4 @@ def process(map):
         map_img.paste(img, (x * tile_size, y * tile_size))
 
   map_img.save('dungeon.jpg')
+"""
