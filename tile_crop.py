@@ -1,9 +1,11 @@
 from PIL import Image
+
 import tile_rule as tile
 
 tileset = []
 tsz = tile.tile_size
 tsz2 = tsz // 2
+TILESET_LEN = 9999
 
 
 def create_image():
@@ -191,7 +193,18 @@ def main():
   B = crop_1D(Image.open('resource/Outside_B.png'), 8, 16, 2)
   C = crop_1D(Image.open('resource/Outside_C.png'), 8, 16, 2)
 
-  print2(B)
+  output = [None] * TILESET_LEN
+  output[0:256] = B
+  output[256:512] = C
+  # output[512:768] = D
+  # output[768:1024] = E
+  output[2048:2816] = A1
+  output[2816:4352] = A2
+  output[4352:5888] = A3
+  output[5888:8192] = A4
+  output[1536:1664] = A5
+
+  return output
 
 
 def print2(output):
