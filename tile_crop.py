@@ -194,22 +194,22 @@ def main():
   C = crop_1D(Image.open('resource/Outside_C.png'), 8, 16, 2)
 
   output = [None] * TILESET_LEN
+  output[2048:2816] = [item for row in A1 for item in row]
+  output[2816:4352] = [item for row in A2 for item in row]
+  output[4352:5888] = [item for row in A3 for item in row]
+  output[5888:8192] = [item for row in A4 for item in row]
+  output[1536:1664] = A5
   output[0:256] = B
   output[256:512] = C
   # output[512:768] = D
   # output[768:1024] = E
-  output[2048:2816] = A1
-  output[2816:4352] = A2
-  output[4352:5888] = A3
-  output[5888:8192] = A4
-  output[1536:1664] = A5
 
   return output
 
 
 def print2(output):
-  test = Image.new('RGBA', (tsz * 8, tsz * 32), (0, 0, 0, 0))
-  for y in range(32):
-    for x in range(8):
-      test.paste(output[y * 8 + x], (x * tsz, y * tsz))
+  test = Image.new('RGBA', (tsz * 6, tsz * 8), (0, 0, 0, 0))
+  for y in range(8):
+    for x in range(6):
+      test.paste(output[0 + y * 6 + x], (x * tsz, y * tsz))
   test.save('output.png')

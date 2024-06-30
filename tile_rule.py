@@ -66,6 +66,7 @@ data_base = {
     wall: {'E'},
 }
 
+# Tile Automata
 floor_automata = [
     [[1, 1, 1], [1, 2, 1], [1, 1, 1]],
     [[0, 1, 1], [1, 2, 1], [1, 1, 1]],
@@ -116,3 +117,12 @@ floor_automata = [
     [[2, 0, 2], [0, 2, 0], [2, 0, 2]],
     [[2, 0, 2], [0, 2, 0], [2, 0, 2]],
 ]
+
+wall_automata = []
+for i in range(16):
+    wall_automata.append([
+        (i >> 0) & 1 ^ 1,
+        (i >> 1) & 1 ^ 1,
+        (i >> 2) & 1 ^ 1,
+        (i >> 3) & 1 ^ 1,
+    ])

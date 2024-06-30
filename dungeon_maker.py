@@ -4,15 +4,15 @@ from collections import deque
 import tile_rule as tile
 
 # Parameter
-map_width = 45
-map_height = 45
+map_width = 60
+map_height = 60
 room_min_size = 10
 room_max_size = 18
-map_padding = 2  # min = 1
+map_padding = 4  # min = 1
 room_min_padding = 1
 room_max_padding = 1
-corridor_wide = 2
-wall_height = 2
+corridor_wide = 2  # min = 1
+wall_height = 3
 
 # Constant
 MAX_LAYER = 5
@@ -27,9 +27,9 @@ MAX_LAYER = 5
 
 theme = {
     tile.blank: 1536,
-    tile.floor: 2816,
-    tile.wall: 6274,
-    tile.ceil: 5888,
+    tile.floor: 2336,
+    tile.wall: 4736,  # 6272
+    tile.ceil: 6848,
 }
 
 
@@ -48,7 +48,7 @@ class Dungeon:
   def __init__(self):
     self.map = [[[0 for _ in range(MAX_LAYER)] for _ in range(map_width)]
                 for _ in range(map_height)]
-    self.map_basic = [[[0 for _ in range(2)] for _ in range(map_width)]
+    self.map_basic = [[[0 for _ in range(1)] for _ in range(map_width)]
                       for _ in range(map_height)]
     self.room_graph = []
     self.room_list = []
@@ -120,10 +120,11 @@ class Dungeon:
   def make_corridor(self, i, j):
     cw, wh = corridor_wide, wall_height
     r1, r2 = self.room_list[i], self.room_list[j]
-    cx1 = random.randrange(r1.x1 + cw, r1.x2 - cw)
-    cy1 = random.randrange(r1.y1 + cw + wh, r1.y2 - cw)
-    cx2 = random.randrange(r2.x1 + cw, r2.x2 - cw)
-    cy2 = random.randrange(r2.y1 + cw + wh, r2.y2 - cw)
+
+    cx1 = random.randint(r1.x1 + cw, r1.x2 - cw)
+    cy1 = random.randint(r1.y1 + cw + wh, r1.y2 - cw)
+    cx2 = random.randint(r2.x1 + cw, r2.x2 - cw)
+    cy2 = random.randint(r2.y1 + cw + wh, r2.y2 - cw)
     dire = random.randint(0, 1)
 
     for x in range(min(cx1, cx2 + 1) - cw, max(cx1, cx2 + 1) + cw):
@@ -172,11 +173,13 @@ class Dungeon:
   def define_tile_id(self):
     for y in range(map_height):
       for x in range(map_width):
-        for r in range(2):
+        for r in range(1):
           target = self.map_basic[y][x][r]
           self.map[y][x][r] = theme[target]
           if (target == tile.floor or target == tile.ceil):
             self.map[y][x][r] += self.interpolate_floor_tile(x, y, r)
+          elif (target == tile.wall):
+            self.map[y][x][r] += self.interpolate_wall_tile(x, y, r)
 
   def interpolate_floor_tile(self, x, y, r):
     dmap = [[0 for _ in range(3)] for _ in range(3)]
@@ -194,6 +197,34 @@ class Dungeon:
           if automata[dy][dx] == 2:
             continue
           ok = ok and dmap[dy][dx] == automata[dy][dx]
+      if (ok):
+        return i
+
+    return 0
+
+  def interpolate_wall_tile(self, x, y, r):
+
+    def dist_tile(tx, ty, target):
+      dist = 0
+      while self.map_basic[ty - dist][tx][r] != target and ty - dist >= 0:
+        dist += 1
+      return dist
+
+    dmap = [0] * 4
+    dire = [(-1, 0), (0, -1), (1, 0), (0, 1)]
+    for i in range(4):
+      nx, ny = x + dire[i][0], y + dire[i][1]
+      cond = self.map_basic[y][x][r] == self.map_basic[ny][nx][r]
+      if dire[i][0] != 0:
+        cond = cond and dist_tile(x, y, tile.ceil) == dist_tile(
+            nx, ny, tile.ceil)
+      dmap[i] = (1 if cond else 0)
+
+    for i in range(len(tile.wall_automata)):
+      automata = tile.wall_automata[i]
+      ok = True
+      for j in range(4):
+        ok = ok and dmap[j] == automata[j]
       if (ok):
         return i
 
@@ -282,6 +313,7 @@ def define_separator_per(x1, y1, x2, y2):
 
   p, q = a + d, b - d
   return 1 / (b - a) if p <= q else 1 / (b - a - d) * 2
+
 
 def main():
   return Dungeon()
