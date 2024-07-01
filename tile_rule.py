@@ -13,58 +13,57 @@ class Group:
         self.dy = dire[1]
 
 
-tile_size = 48  # px
-
 # Basic Tile ID List
 blank = 0
 floor = 1
 wall = 2
 ceil = 3
-water = 4  # Not Used
+water = 4
+cascade = 5
+floor_cover = 6
+water_cover = 7
 
-floor_cover = 5  # Not Used
-water_cover = 6  # Not Used
-
-# Normal Tile Rule
-data_prob = {
-    floor: {
-        (0, 0): [
-            Prob('A', 0.005),
-            Prob('C', 0.002),
-            Prob('D', 0.0075),
-        ],
-    },
-    wall: {
-        (0, 0): [
-            Prob('E', 0.02),
-        ],
-        (1, 0): [
-            Prob('C', 0.02),
-        ],
-        (-1, 0): [
-            Prob('C', 0.02),
-        ],
-        (0, 1): [
-            Prob('C', 0.02),
-        ],
-        (0, -1): [
-            Prob('C', 0.02),
-        ],
-    },
-}
-
-# Group Tile Rule
-data_group = {
-    'A': [
-        Group('B', (0, 1)),
+# Normal Deco Tile Rule
+gen_normal = {
+    floor: [
+        Prob(88, 0.01),
+        Prob(89, 0.01),
+        Prob(90, 0.01),
+        Prob(91, 0.01),
+        Prob(92, 0.0075),
+        Prob(93, 0.0025),
+        Prob(95, 0.002),
+        Prob(96, 0.005),
+        Prob(97, 0.005),
+        Prob(98, 0.005),
+        Prob(99, 0.005),
+        Prob(100, 0.0025),
+        Prob(102, 0.0025),
+        Prob(103, 0.0025),
+    ],
+    wall: [
+        Prob(192, 0.05),
+        Prob(193, 0.05),
     ],
 }
 
-# Basic Tile Rule
-data_base = {
-    floor: {'A', 'B', 'C', 'D'},
-    wall: {'E'},
+# Group Deco Tile Rule
+gen_group = {
+    93: [
+        Group(101, (0, 1)),
+    ],
+    192: [
+        Group(200, (0, 1)),
+    ],
+    193: [
+        Group(201, (0, 1)),
+    ],
 }
+
+# Deco Tile Layer Rule
+layer_data = [2] * 9999
+layer_data[92:95] = [3] * 4
+layer_data[100:103] = [3] * 4
 
 # Tile Automata
 floor_automata = [
@@ -121,8 +120,15 @@ floor_automata = [
 wall_automata = []
 for i in range(16):
     wall_automata.append([
-        (i >> 0) & 1 ^ 1,
-        (i >> 1) & 1 ^ 1,
-        (i >> 2) & 1 ^ 1,
-        (i >> 3) & 1 ^ 1,
+        (i >> 0) & 1 ^ 1,  # left
+        (i >> 1) & 1 ^ 1,  # up
+        (i >> 2) & 1 ^ 1,  # right
+        (i >> 3) & 1 ^ 1,  # down
+    ])
+
+cascade_automata = []
+for i in range(4):
+    wall_automata.append([
+        (i >> 0) & 1 ^ 1,  # left
+        (i >> 1) & 1 ^ 1,  # right
     ])

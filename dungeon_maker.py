@@ -1,36 +1,19 @@
 import random
 from collections import deque
 
+import parameter as param
 import tile_rule as tile
 
-# Parameter
-map_width = 60
-map_height = 60
-room_min_size = 10
-room_max_size = 18
-map_padding = 4  # min = 1
-room_min_padding = 1
-room_max_padding = 1
-corridor_wide = 2  # min = 1
-wall_height = 3
-
-# Constant
-MAX_LAYER = 5
-
-# Map Index
-# 0 = Base Tile 1
-# 1 = Base Tile 2
-# 2 = Deco Tile 1
-# 3 = Deco Tile 2
-# 4 = Shadow Tile
-# 5 = Restrict ID (Not Used)
-
-theme = {
-    tile.blank: 1536,
-    tile.floor: 2336,
-    tile.wall: 4736,  # 6272
-    tile.ceil: 6848,
-}
+map_width = param.map_width
+map_height = param.map_height
+room_min_size = param.room_min_size
+room_max_size = param.room_max_size
+map_padding = param.map_padding
+room_min_padding = param.room_min_padding
+room_max_padding = param.room_max_padding
+corridor_wide = param.corridor_wide
+wall_height = param.wall_height
+MAX_LAYER = 6
 
 
 class Room:
@@ -59,11 +42,32 @@ class Dungeon:
     self.generate_map(mp, mp, map_width - mp, map_height - mp)
     self.generate_graph()
     self.connect_rooms()
-    self.place_ceil()
+    self.place_wall_ceil()
+    self.place_water()
+    self.place_decorations()
     self.define_tile_id()
-    # self.place_decorations(3)
 
   def generate_map(self, x1, y1, x2, y2):
+
+    def define_separator(a, b):
+      d = room_min_size
+      p, q = a + d, b - d
+      if p <= q:
+        return random.randint(a + 1, b - 1)
+      else:
+        r = random.randint(1, b - a - d)
+        return random.choice([a + r, b - r])
+
+    def define_separator_per(x1, y1, x2, y2):
+      d = room_min_size
+      a, b = (x1, x2) if (y2 - y1) < (x2 - x1) else (y1, y2)
+
+      if b - a == d:
+        return 1
+
+      p, q = a + d, b - d
+      return 1 / (b - a) if p <= q else 1 / (b - a - d) * 2
+
     room_width = x2 - x1
     room_height = y2 - y1
 
@@ -85,6 +89,28 @@ class Dungeon:
       self.generate_map(x1, y1, x2, cy)
       self.generate_map(x1, cy, x2, y2)
 
+  def generate_graph(self):
+
+    def rect_distance(a, b):
+      x_dist = max(0, b.x1 - a.x2, a.x1 - b.x2)
+      y_dist = max(0, b.y1 - a.y2, a.y1 - b.y2)
+
+      if x_dist == 0:
+        return y_dist
+      elif y_dist == 0:
+        return x_dist
+      else:
+        return x_dist + y_dist + 1
+
+    R = self.room_list
+    self.room_graph = [[0 for _ in range(len(R))] for _ in range(len(R))]
+
+    for i in range(len(R)):
+      for j in range(len(R)):
+        if i != j:
+          dist = rect_distance(R[i], R[j])
+          self.room_graph[j][i] = self.room_graph[i][j] = dist
+
   def generate_room(self, x1, y1, x2, y2):
     padding = random.randint(room_min_padding, room_max_padding)
     x1 += padding
@@ -98,45 +124,53 @@ class Dungeon:
         self.map_basic[y][x][0] = tile.floor
     self.room_list.append(room)
 
-  def generate_graph(self):
-    R = self.room_list
-    self.room_graph = [[0 for _ in range(len(R))] for _ in range(len(R))]
-
-    for i in range(len(R)):
-      for j in range(len(R)):
-        if i != j:
-          dist = rect_distance(R[i], R[j])
-          self.room_graph[j][i] = self.room_graph[i][j] = dist
-
   def connect_rooms(self):
+
+    def floyd_warshall(graph):
+      n = len(graph)
+      dist = [row[:] for row in graph]
+
+      for k in range(n):
+        for i in range(n):
+          for j in range(n):
+            dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])
+
+      return dist
+
+    def make_corridor(i, j):
+      cw, wh = corridor_wide, wall_height
+      r1, r2 = self.room_list[i], self.room_list[j]
+
+      cx1 = random.randrange(r1.x1 + cw, r1.x2 - cw)
+      cy1 = random.randrange(r1.y1 + cw + wh, r1.y2 - cw)
+      cx2 = random.randrange(r2.x1 + cw, r2.x2 - cw)
+      cy2 = random.randrange(r2.y1 + cw + wh, r2.y2 - cw)
+      dire = random.randint(0, 1)
+
+      for x in range(min(cx1, cx2 + 1) - cw, max(cx1, cx2 + 1) + cw):
+        by = cy1 if dire == 0 else cy2
+        for y in range(by - cw - wh, by + cw + 1):
+          self.map_basic[y][x][0] = tile.floor
+      for y in range(min(cy1, cy2 + 1) - cw - wh, max(cy1, cy2 + 1) + cw):
+        bx = cx2 if dire == 0 else cx1
+        for x in range(bx - cw, bx + cw + 1):
+          self.map_basic[y][x][0] = tile.floor
+
     dist = self.room_graph
     min_dist = floyd_warshall(self.room_graph)
 
     for i in range(len(dist)):
       for j in range(i + 1, len(dist)):
         if dist[i][j] == min_dist[i][j]:
-          self.make_corridor(i, j)
+          make_corridor(i, j)
 
-  def make_corridor(self, i, j):
-    cw, wh = corridor_wide, wall_height
-    r1, r2 = self.room_list[i], self.room_list[j]
+  def place_wall_ceil(self):
 
-    cx1 = random.randint(r1.x1 + cw, r1.x2 - cw)
-    cy1 = random.randint(r1.y1 + cw + wh, r1.y2 - cw)
-    cx2 = random.randint(r2.x1 + cw, r2.x2 - cw)
-    cy2 = random.randint(r2.y1 + cw + wh, r2.y2 - cw)
-    dire = random.randint(0, 1)
+    def place_wall(x, y):
+      if self.map_basic[y + 1][x][0] == tile.floor:
+        for dy in range(1, wall_height + 1):
+          self.map_basic[y + dy][x][0] = tile.wall
 
-    for x in range(min(cx1, cx2 + 1) - cw, max(cx1, cx2 + 1) + cw):
-      by = cy1 if dire == 0 else cy2
-      for y in range(by - cw - wh, by + cw + 1):
-        self.map_basic[y][x][0] = tile.floor
-    for y in range(min(cy1, cy2 + 1) - cw - wh, max(cy1, cy2 + 1) + cw):
-      bx = cx2 if dire == 0 else cx1
-      for x in range(bx - cw, bx + cw + 1):
-        self.map_basic[y][x][0] = tile.floor
-
-  def place_ceil(self):
     start = self.room_list[0]
     visited = set()
     queue = deque([(start.x1, start.y1)])
@@ -163,156 +197,129 @@ class Dungeon:
         ceil_set.add((x, y))
 
     for x, y in ceil_set:
-      self.place_wall(x, y)
+      place_wall(x, y)
 
-  def place_wall(self, x, y):
-    if self.map_basic[y + 1][x][0] == tile.floor:
-      for dy in range(1, wall_height + 1):
-        self.map_basic[y + dy][x][0] = tile.wall
+  def place_water(self):
+    pd = map_padding
+    for y in range(pd, map_height - pd):
+      for x in range(pd, map_width - pd):
+        if (self.map_basic[y][x][0] == tile.floor
+            and random.random() < param.water_seed_gen_rate):
+          self.map_basic[y][x][0] = tile.water
 
   def define_tile_id(self):
+
+    def interpolate_floor_tile(x, y, r):
+      dmap = [[0 for _ in range(3)] for _ in range(3)]
+      for dy in range(3):
+        for dx in range(3):
+          nx, ny = x + dx - 1, y + dy - 1
+          dmap[dy][dx] = (1 if self.map_basic[y][x][r]
+                          == self.map_basic[ny][nx][r] else 0)
+
+      for i in range(len(tile.floor_automata)):
+        automata = tile.floor_automata[i]
+        ok = True
+        for dy in range(3):
+          for dx in range(3):
+            if automata[dy][dx] == 2:
+              continue
+            ok = ok and dmap[dy][dx] == automata[dy][dx]
+        if (ok):
+          return i
+
+      return 0
+
+    def interpolate_wall_tile(x, y, r):
+
+      def dist_tile(tx, ty, target):
+        dist = 0
+        while self.map_basic[ty - dist][tx][r] != target and ty - dist >= 0:
+          dist += 1
+        return dist
+
+      dmap = [0] * 4
+      dire = [(-1, 0), (0, -1), (1, 0), (0, 1)]
+      for i in range(4):
+        nx, ny = x + dire[i][0], y + dire[i][1]
+        cond = self.map_basic[y][x][r] == self.map_basic[ny][nx][r]
+        if dire[i][0] != 0:
+          cond = cond and dist_tile(x, y, tile.ceil) == dist_tile(
+              nx, ny, tile.ceil)
+        dmap[i] = (1 if cond else 0)
+
+      for i in range(len(tile.wall_automata)):
+        automata = tile.wall_automata[i]
+        ok = True
+        for j in range(4):
+          ok = ok and dmap[j] == automata[j]
+        if (ok):
+          return i
+
+      return 0
+
+    def interpolate_cascade_tile(x, y, r):
+      dmap = [0] * 2
+      dire = [-1, 1]
+      for i in range(2):
+        nx = x + dire[i]
+        cond = self.map_basic[y][x][r] == self.map_basic[y][nx][r]
+        dmap[i] = (1 if cond else 0)
+
+      for i in range(len(tile.cascade_automata)):
+        automata = tile.cascade_automata[i]
+        ok = True
+        for j in range(2):
+          ok = ok and dmap[j] == automata[j]
+        if (ok):
+          return i
+
+      return 0
+
     for y in range(map_height):
       for x in range(map_width):
         for r in range(1):
           target = self.map_basic[y][x][r]
-          self.map[y][x][r] = theme[target]
-          if (target == tile.floor or target == tile.ceil):
-            self.map[y][x][r] += self.interpolate_floor_tile(x, y, r)
+          self.map[y][x][r] = param.theme[target]
+          if (target == tile.floor or target == tile.ceil
+              or target == tile.water):
+            self.map[y][x][r] += interpolate_floor_tile(x, y, r)
           elif (target == tile.wall):
-            self.map[y][x][r] += self.interpolate_wall_tile(x, y, r)
+            self.map[y][x][r] += interpolate_wall_tile(x, y, r)
+          elif (target == tile.cascade):
+            self.map[y][x][r] += interpolate_cascade_tile(x, y, r)
 
-  def interpolate_floor_tile(self, x, y, r):
-    dmap = [[0 for _ in range(3)] for _ in range(3)]
-    for dy in range(3):
-      for dx in range(3):
-        nx, ny = x + dx - 1, y + dy - 1
-        dmap[dy][dx] = (1 if self.map_basic[y][x][r]
-                        == self.map_basic[ny][nx][r] else 0)
+  def place_decorations(self):
 
-    for i in range(len(tile.floor_automata)):
-      automata = tile.floor_automata[i]
+    def gen_deco_tiles(x, y):
+      tiles = []
+      tile_basic = self.map_basic[y][x][0]
+      for cond in tile.gen_normal.get(tile_basic, []):
+        if (random.random() < cond.prob):
+          tiles.append(cond)
+      return tiles
+
+    def place_deco(x, y, target):
+      tile_basic = self.map_basic[y][x][0]
+      group = tile.gen_group.get(target, [])
       ok = True
-      for dy in range(3):
-        for dx in range(3):
-          if automata[dy][dx] == 2:
-            continue
-          ok = ok and dmap[dy][dx] == automata[dy][dx]
-      if (ok):
-        return i
-
-    return 0
-
-  def interpolate_wall_tile(self, x, y, r):
-
-    def dist_tile(tx, ty, target):
-      dist = 0
-      while self.map_basic[ty - dist][tx][r] != target and ty - dist >= 0:
-        dist += 1
-      return dist
-
-    dmap = [0] * 4
-    dire = [(-1, 0), (0, -1), (1, 0), (0, 1)]
-    for i in range(4):
-      nx, ny = x + dire[i][0], y + dire[i][1]
-      cond = self.map_basic[y][x][r] == self.map_basic[ny][nx][r]
-      if dire[i][0] != 0:
-        cond = cond and dist_tile(x, y, tile.ceil) == dist_tile(
-            nx, ny, tile.ceil)
-      dmap[i] = (1 if cond else 0)
-
-    for i in range(len(tile.wall_automata)):
-      automata = tile.wall_automata[i]
-      ok = True
-      for j in range(4):
-        ok = ok and dmap[j] == automata[j]
-      if (ok):
-        return i
-
-    return 0
-
-  """
-  def get_tiles_by_neighbors(self, x, y):
-    tiles = []
-    for dy in [-1, 0, 1]:
-      for dx in [-1, 0, 1]:
-        nx, ny = x + dx, y + dy
-        for cond in tile.data_prob.get(self.map_basic[ny][nx][0], {}).get(
-            (dx, dy), []):
-          if (random.random() < cond.prob
-              and cond.target in tile.data_base.get(self.map_basic[y][x][0],
-                                                    set())):
-            tiles.append(cond)
-    return tiles
-
-  def place_deco(self, x, y, target):
-    group = tile.data_group.get(target, [])
-    ok = True
-    for member in group:
-      nx, ny = (x + member.dx, y + member.dy)
-      ok = ok and member.target in tile.data_base.get(
-          self.map_basic[ny][nx][0], set())
-
-    if ok:
-      self.map_basic[y][x][0] = target
       for member in group:
         nx, ny = (x + member.dx, y + member.dy)
-        self.map_basic[ny][nx][0] = member.target
+        ok = ok and self.map_basic[ny][nx][0] == tile_basic
 
-  def place_decorations(self, iter):
+      if ok:
+        self.map[y][x][tile.layer_data[target]] = target
+        for member in group:
+          nx, ny = (x + member.dx, y + member.dy)
+          self.map[ny][nx][tile.layer_data[member.target]] = member.target
+
     pd = map_padding
-    for _ in range(iter):
-      for y in range(pd, map_height - pd):
-        for x in range(pd, map_width - pd):
-          list = self.get_tiles_by_neighbors(x, y)
-          if len(list) > 0:
-            list.sort(key=lambda cond: cond.prob, reverse=True)
-            self.place_deco(x, y, list[0].target)
-  """
-
-
-def rect_distance(a, b):
-  x_dist = max(0, b.x1 - a.x2, a.x1 - b.x2)
-  y_dist = max(0, b.y1 - a.y2, a.y1 - b.y2)
-
-  if x_dist == 0:
-    return y_dist
-  elif y_dist == 0:
-    return x_dist
-  else:
-    return x_dist + y_dist + 1
-
-
-def floyd_warshall(graph):
-  n = len(graph)
-  dist = [row[:] for row in graph]
-
-  for k in range(n):
-    for i in range(n):
-      for j in range(n):
-        dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])
-
-  return dist
-
-
-def define_separator(a, b):
-  d = room_min_size
-  p, q = a + d, b - d
-  if p <= q:
-    return random.randint(a + 1, b - 1)
-  else:
-    r = random.randint(1, b - a - d)
-    return random.choice([a + r, b - r])
-
-
-def define_separator_per(x1, y1, x2, y2):
-  d = room_min_size
-  a, b = (x1, x2) if (y2 - y1) < (x2 - x1) else (y1, y2)
-
-  if b - a == d:
-    return 1
-
-  p, q = a + d, b - d
-  return 1 / (b - a) if p <= q else 1 / (b - a - d) * 2
+    for y in range(pd, map_height - pd):
+      for x in range(pd, map_width - pd):
+        list = gen_deco_tiles(x, y)
+        if len(list) > 0:
+          list.sort(key=lambda cond: cond.prob, reverse=True)
+          place_deco(x, y, list[0].target)
 
 
 def main():

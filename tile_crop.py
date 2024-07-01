@@ -1,9 +1,10 @@
 from PIL import Image
 
-import tile_rule as tile
+import parameter as param
 
 tileset = []
-tsz = tile.tile_size
+img_path = param.img_path
+tsz = param.TILE_PX_SIZE
 tsz2 = tsz // 2
 TILESET_LEN = 9999
 
@@ -155,8 +156,7 @@ def crop_wall(img):
 
 def main():
   A1 = []
-  A1_pre = crop_2D(Image.open('resource/Outside_A1.png'), 8, 4, 2 * tsz,
-                   3 * tsz)
+  A1_pre = crop_2D(Image.open(img_path.A1), 8, 4, 2 * tsz, 3 * tsz)
   for y in range(4):
     for x in range(8):
       if (x == 1 or x == 2 or x == 5 or x == 6):
@@ -167,31 +167,29 @@ def main():
         A1.append(crop_floor(A1_pre[y][x]))
 
   A2 = []
-  A2_pre = crop_2D(Image.open('resource/Outside_A2.png'), 8, 4, 2 * tsz,
-                   3 * tsz)
+  A2_pre = crop_2D(Image.open(img_path.A2), 8, 4, 2 * tsz, 3 * tsz)
   for y in range(4):
     for x in range(8):
       A2.append(crop_floor(A2_pre[y][x]))
 
   A3 = []
-  A3_pre = crop_2D(Image.open('resource/Outside_A3.png'), 8, 4, 2 * tsz,
-                   2 * tsz)
+  A3_pre = crop_2D(Image.open(img_path.A3), 8, 4, 2 * tsz, 2 * tsz)
   for y in range(4):
     for x in range(8):
       A3.append(crop_wall(A3_pre[y][x]))
 
   A4 = []
-  A4_pre = crop_A4(Image.open('resource/Outside_A4.png'))
-  for y in range(4):
+  A4_pre = crop_A4(Image.open(img_path.A4))
+  for y in range(6):
     for x in range(8):
       if y % 2 == 0:
         A4.append(crop_floor(A4_pre[y][x]))
       else:
         A4.append(crop_wall(A4_pre[y][x]))
 
-  A5 = crop_1D(Image.open('resource/Outside_A5.png'), 8, 16)
-  B = crop_1D(Image.open('resource/Outside_B.png'), 8, 16, 2)
-  C = crop_1D(Image.open('resource/Outside_C.png'), 8, 16, 2)
+  A5 = crop_1D(Image.open(img_path.A5), 8, 16)
+  B = crop_1D(Image.open(img_path.B), 8, 16, 2)
+  C = crop_1D(Image.open(img_path.C), 8, 16, 2)
 
   output = [None] * TILESET_LEN
   output[2048:2816] = [item for row in A1 for item in row]
@@ -211,5 +209,5 @@ def print2(output):
   test = Image.new('RGBA', (tsz * 6, tsz * 8), (0, 0, 0, 0))
   for y in range(8):
     for x in range(6):
-      test.paste(output[0 + y * 6 + x], (x * tsz, y * tsz))
+      test.paste(output[7472 + y * 6 + x], (x * tsz, y * tsz))
   test.save('output.png')
