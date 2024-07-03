@@ -5,25 +5,28 @@ tileset_id = 2
 map_id = 18
 
 # Dungeon
-map_width = 60
-map_height = 60
-room_min_size = 12
-room_max_size = 18
-map_padding = 4  # min = 1
+map_width = 100
+map_height = 100
+room_min_size = 20
+room_max_size = 36
+map_padding = 4
 room_min_padding = 1
 room_max_padding = 1
 corridor_wide = 2  # min = 1
-wall_height = 3
-
-water_seed_gen_rate = 0.01
+wall_height = 2
 
 theme = {
+    tile.transparent: 0,
     tile.blank: 1536,
     tile.floor: 2816,  # 2336
     tile.wall: 7808,  # 4736
     tile.ceil: 7472,  # 6848
-    tile.water: 2048,
-    tile.cascade: 2480,
+    tile.floor_cover[0].id: 3008,
+    tile.floor_cover[1].id: 3920,
+    tile.extra[0].base.id: 2048,
+    tile.extra[0].coverList[0].id: 2144,
+    tile.extra[0].coverList[1].id: 2192,
+    tile.extra[0].cascade.id: 2480,
 }
 
 

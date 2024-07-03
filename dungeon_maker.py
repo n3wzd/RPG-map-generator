@@ -31,8 +31,8 @@ class Dungeon:
   def __init__(self):
     self.map = [[[0 for _ in range(MAX_LAYER)] for _ in range(map_width)]
                 for _ in range(map_height)]
-    self.map_basic = [[[0 for _ in range(1)] for _ in range(map_width)]
-                      for _ in range(map_height)]
+    self.map_basic = [[[tile.blank, tile.transparent]
+                       for _ in range(map_width)] for _ in range(map_height)]
     self.room_graph = []
     self.room_list = []
     self.generate_dungeon()
@@ -43,7 +43,7 @@ class Dungeon:
     self.generate_graph()
     self.connect_rooms()
     self.place_wall_ceil()
-    self.place_water()
+    self.place_area_all()
     self.place_decorations()
     self.define_tile_id()
 
@@ -185,6 +185,9 @@ class Dungeon:
 
       for d in dire:
         nx, ny = x + d[0], y + d[1]
+        if not (0 <= nx < map_width and 0 <= ny < map_height):
+          continue
+
         nv = self.map_basic[ny][nx][0]
         isCeil = isCeil or nv == tile.blank
 
@@ -199,13 +202,112 @@ class Dungeon:
     for x, y in ceil_set:
       place_wall(x, y)
 
-  def place_water(self):
+  def place_area(self, area_tile, base_id, layer):
+    target = area_tile.id
+
+    class AreaSeed:
+
+      def __init__(self, x, y, direction, magnitude, capacity):
+
+        def get_prob():
+          prob = []
+          for i in range(4):
+            diff = abs(direction - i * 90)
+            d = min(diff, 360 - diff) / 180
+            r = magnitude
+            prob.append(((1 - r) * 0.5 + r * (1 - d)) * 0.5)
+          return prob
+
+        self.pos = (x, y)
+        self.prob = get_prob()
+        self.capacity = capacity
+
+    def create_seed():
+      seed_list = []
+      for y in range(pd, map_height - pd):
+        for x in range(pd, map_width - pd):
+          if (self.map_basic[y][x][0] == base_id
+              and random.random() < area_tile.seed_gen_rate):
+            seed_list.append(
+                AreaSeed(x, y,
+                         random.random() * 360, random.random(),
+                         random.randint(CAP_MIN, CAP_MAX)))
+      return seed_list
+
+    def spread(seed):
+      self.map_basic[seed.pos[1]][seed.pos[0]][layer] = target
+      buffer = {seed.pos}
+      dire = [(1, 0), (0, -1), (-1, 0), (0, 1)]
+
+      for _ in range(seed.capacity):
+        iter_buffer = buffer.copy()
+        for v in iter_buffer:
+          flag = True
+          for i in range(4):
+            (x, y) = v[0] + dire[i][0], v[1] + dire[i][1]
+            flag = flag and self.map_basic[y][x][0] != base_id
+
+          if flag:
+            buffer.remove(v)
+          else:
+            for i in range(4):
+              (x, y) = v[0] + dire[i][0], v[1] + dire[i][1]
+              if (self.map_basic[y][x][0] == base_id
+                  and random.random() < seed.prob[i]):
+                buffer.add((x, y))
+                self.map_basic[y][x][layer] = target
+
+    def trim():
+      dire = [(1, 0), (0, -1), (-1, 0), (0, 1)]
+
+      def clean_out(x, y):
+        if self.map_basic[y][x][layer] == target:
+          flag = 0
+          for d in dire:
+            nx, ny = x + d[0], y + d[1]
+            flag += 1 if self.map_basic[ny][nx][layer] != target else 0
+          if flag >= 3:
+            if layer == 0:
+              self.map_basic[y][x][layer] = base_id
+            else:
+              self.map_basic[y][x][layer] = 0
+            for d in dire:
+              clean_out(x + d[0], y + d[1])
+
+      def fill(x, y):
+        if self.map_basic[y][x][0] == base_id:
+          flag = True
+          for d in dire:
+            (nx, ny) = x + d[0], y + d[1]
+            flag = flag and self.map_basic[ny][nx][layer] == target
+
+          if flag:
+            self.map_basic[y][x][layer] = target
+
+      for y in range(pd, map_height - pd):
+        for x in range(pd, map_width - pd):
+          clean_out(x, y)
+
+      for y in range(pd, map_height - pd):
+        for x in range(pd, map_width - pd):
+          fill(x, y)
+
+    (CAP_MIN, CAP_MAX) = (area_tile.capacity_min, area_tile.capacity_max)
     pd = map_padding
-    for y in range(pd, map_height - pd):
-      for x in range(pd, map_width - pd):
-        if (self.map_basic[y][x][0] == tile.floor
-            and random.random() < param.water_seed_gen_rate):
-          self.map_basic[y][x][0] = tile.water
+
+    seed_list = create_seed()
+    for seed in seed_list:
+      spread(seed)
+    trim()
+
+  def place_area_all(self):
+    for tx in tile.extra:
+      self.place_area(tx.base, tile.floor, 0)
+    for tx in tile.floor_cover:
+      self.place_area(tx, tile.floor, 1)
+    for tx in tile.extra:
+      for cx in tx.coverList:
+        self.place_area(cx, tx.base.id, 1)
 
   def define_tile_id(self):
 
@@ -278,15 +380,14 @@ class Dungeon:
 
     for y in range(map_height):
       for x in range(map_width):
-        for r in range(1):
+        for r in range(2):
           target = self.map_basic[y][x][r]
           self.map[y][x][r] = param.theme[target]
-          if (target == tile.floor or target == tile.ceil
-              or target == tile.water):
+          if (target in tile.type_floor):
             self.map[y][x][r] += interpolate_floor_tile(x, y, r)
-          elif (target == tile.wall):
+          elif (target in tile.type_wall):
             self.map[y][x][r] += interpolate_wall_tile(x, y, r)
-          elif (target == tile.cascade):
+          elif (target in tile.type_cascade):
             self.map[y][x][r] += interpolate_cascade_tile(x, y, r)
 
   def place_decorations(self):
