@@ -157,14 +157,13 @@ def crop_wall(img):
 def main():
   A1 = []
   A1_pre = crop_2D(Image.open(img_path.A1), 8, 4, 2 * tsz, 3 * tsz)
-  for p in range(2):
-    for dx in [0, 3, 4, 7]:
-      for dy in range(2):
-        x, y = dx, dy + p * 2
-        if (x == 7 or (x == 3 and y > 1)):
-          A1.append(crop_cascade(A1_pre[y][x]))
-        else:
-          A1.append(crop_floor(A1_pre[y][x]))
+  for p in [(0, 0), (0, 1), (3, 0), (3, 1), (4, 0), (7, 0), (4, 1), (7, 1),
+            (0, 2), (3, 2), (0, 3), (3, 3), (4, 2), (7, 2), (4, 3), (7, 3)]:
+    x, y = p[0], p[1]
+    if (x == 7 or (x == 3 and y > 1)):
+      A1.append(crop_cascade(A1_pre[y][x]))
+    else:
+      A1.append(crop_floor(A1_pre[y][x]))
 
   A2 = []
   A2_pre = crop_2D(Image.open(img_path.A2), 8, 4, 2 * tsz, 3 * tsz)
@@ -209,5 +208,5 @@ def print2(output):
   test = Image.new('RGBA', (tsz * 6, tsz * 8), (0, 0, 0, 0))
   for y in range(8):
     for x in range(6):
-      test.paste(output[2192 + y * 6 + x], (x * tsz, y * tsz))
+      test.paste(output[2480 + y * 6 + x], (x * tsz, y * tsz))
   test.save('output.png')

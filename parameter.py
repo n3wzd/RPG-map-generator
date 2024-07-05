@@ -13,7 +13,7 @@ map_padding = 4
 room_min_padding = 1
 room_max_padding = 1
 corridor_wide = 2  # min = 1
-wall_height = 2
+wall_height = 3
 
 theme = {
     tile.transparent: 0,
@@ -48,7 +48,7 @@ img_path = ImagePaths()
 # Constant
 TILE_PX_SIZE = 48
 
-# Map Index
+# Map Layer Index
 # 0 = Base Tile 1
 # 1 = Base Tile 2
 # 2 = Deco Tile 1

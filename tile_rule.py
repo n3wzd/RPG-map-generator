@@ -1,11 +1,20 @@
 # Basic Tile ID List
-class TileIdGenerator:
-    cnt = -1
+class TileCore:
+    id_cnt = -1
+    type_floor = set()
+    type_wall = set()
+    type_cascade = set()
 
     @staticmethod
-    def gen():
-        TileIdGenerator.cnt += 1
-        return TileIdGenerator.cnt
+    def id_gen(type=-1):
+        TileCore.id_cnt += 1
+        if type == 0:
+            TileCore.type_floor.add(TileCore.id_cnt)
+        if type == 1:
+            TileCore.type_wall.add(TileCore.id_cnt)
+        if type == 2:
+            TileCore.type_cascade.add(TileCore.id_cnt)
+        return TileCore.id_cnt
 
 
 class AreaTileSet:
@@ -19,7 +28,7 @@ class AreaTileSet:
 class AreaTile:
 
     def __init__(self, seed_rate=0.002, cap_min=5, cap_max=20):
-        self.id = TileIdGenerator.gen()
+        self.id = TileCore.id_gen(0)
         self.seed_gen_rate = seed_rate
         self.capacity_min = cap_min
         self.capacity_max = cap_max
@@ -27,32 +36,24 @@ class AreaTile:
 
 class CascadeTile:
 
-    def __init__(self, seed_rate=0.02, wide_min=2, wide_max=3):
-        self.id = TileIdGenerator.gen()
+    def __init__(self, seed_rate=0.1, wide_min=2, wide_max=3):
+        self.id = TileCore.id_gen(2)
         self.seed_gen_rate = seed_rate
         self.wide_min = wide_min
         self.wide_max = wide_max
 
 
-transparent = TileIdGenerator.gen()
-blank = TileIdGenerator.gen()
-floor = TileIdGenerator.gen()
-wall = TileIdGenerator.gen()
-ceil = TileIdGenerator.gen()
+transparent = TileCore.id_gen()
+blank = TileCore.id_gen()
+floor = TileCore.id_gen(0)
+wall = TileCore.id_gen(1)
+ceil = TileCore.id_gen(0)
 floor_cover = [AreaTile(0.002), AreaTile(0.002)]
 extra = [
     AreaTileSet(
         AreaTile(0.005),
         [AreaTile(0.01, 2, 8), AreaTile(0.01, 2, 8)], CascadeTile())
 ]
-# floor, cover, cascade
-
-type_floor = {
-    floor, ceil, floor_cover[0].id, floor_cover[1].id, extra[0].base.id,
-    extra[0].coverList[0].id, extra[0].coverList[1].id
-}
-type_wall = {wall}
-type_cascade = {extra[0].cascade.id}
 
 
 # Normal Deco Tile Rule
@@ -176,7 +177,7 @@ for i in range(16):
 
 cascade_automata = []
 for i in range(4):
-    wall_automata.append([
+    cascade_automata.append([
         (i >> 0) & 1 ^ 1,  # left
         (i >> 1) & 1 ^ 1,  # right
     ])
