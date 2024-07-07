@@ -19,19 +19,20 @@ class TileCore:
 
 class AreaTileSet:
 
-    def __init__(self, base, coverList, cascade):
+    def __init__(self, base, coverList=None, cascade=None):
         self.base = base
-        self.coverList = coverList
+        self.coverList = coverList if coverList is not None else []
         self.cascade = cascade
 
 
 class AreaTile:
 
-    def __init__(self, seed_rate=0.002, cap_min=5, cap_max=20):
+    def __init__(self, seed_rate=0.002, cap_min=5, cap_max=20, carpet=False):
         self.id = TileCore.id_gen(0)
         self.seed_gen_rate = seed_rate
         self.capacity_min = cap_min
         self.capacity_max = cap_max
+        self.carpet = carpet
 
 
 class CascadeTile:
@@ -48,42 +49,43 @@ blank = TileCore.id_gen()
 floor = TileCore.id_gen(0)
 wall = TileCore.id_gen(1)
 ceil = TileCore.id_gen(0)
-floor_cover = [AreaTile(0.002), AreaTile(0.002)]
+floor_cover = []
 extra = [
-    AreaTileSet(
-        AreaTile(0.005),
-        [AreaTile(0.01, 2, 8), AreaTile(0.01, 2, 8)], CascadeTile())
+    AreaTileSet(AreaTile(seed_rate=0.02, cap_min=3, cap_max=4, carpet=True))
 ]
 
 
 # Normal Deco Tile Rule
 class Prob:
 
-    def __init__(self, target, prob):
+    def __init__(self, target, prob, adj_wall=(0, 0, 0)):
         self.target = target
         self.prob = prob
+        self.adj_wall = adj_wall  # (up, down, side), only floor
 
+
+AJW_UP = (1, 0, 0)
 
 gen_normal = {
     floor: [
-        Prob(88, 0.01),
-        Prob(89, 0.01),
-        Prob(90, 0.01),
-        Prob(91, 0.01),
-        Prob(92, 0.0075),
-        Prob(93, 0.0025),
-        Prob(95, 0.002),
-        Prob(96, 0.005),
-        Prob(97, 0.005),
-        Prob(98, 0.005),
-        Prob(99, 0.005),
-        Prob(100, 0.0025),
-        Prob(102, 0.0025),
-        Prob(103, 0.0025),
+        Prob(60, 0.1, AJW_UP),
+        Prob(61, 0.1, AJW_UP),
+        Prob(62, 0.1, AJW_UP),
+        Prob(72, 0.1, AJW_UP),
+        Prob(73, 0.1, AJW_UP),
+        Prob(80, 0.25, (1, 0, 1)),
+        Prob(96, 0.1, AJW_UP),
+        Prob(97, 0.1, AJW_UP),
+        Prob(112, 0.1, AJW_UP),
+        Prob(113, 0.1, AJW_UP),
+        Prob(114, 0.1, AJW_UP),
     ],
     wall: [
-        Prob(192, 0.05),
-        Prob(193, 0.05),
+        Prob(32, 0.05),
+        Prob(33, 0.05),
+        Prob(120, 0.05),
+        Prob(121, 0.05),
+        Prob(122, 0.05),
     ],
 }
 
@@ -91,28 +93,44 @@ gen_normal = {
 # Group Deco Tile Rule
 class Group:
 
-    def __init__(self, target, dire):
+    def __init__(self, target, dire, base_id=-1):
         self.target = target
         self.dx = dire[0]
         self.dy = dire[1]
+        self.base_id = base_id  # -1: same with origin, -2: don't care
 
 
 gen_group = {
-    93: [
-        Group(101, (0, 1)),
+    32: [
+        Group(40, (0, 1)),
     ],
-    192: [
-        Group(200, (0, 1)),
+    33: [
+        Group(41, (0, 1)),
     ],
-    193: [
-        Group(201, (0, 1)),
+    60: [
+        Group(52, (0, -1), -2),
+    ],
+    61: [
+        Group(53, (0, -1), -2),
+    ],
+    62: [
+        Group(54, (0, -1), -2),
+        Group(55, (1, -1), -2),
+        Group(63, (1, 0)),
+    ],
+    72: [
+        Group(64, (0, -1), -2),
+    ],
+    73: [
+        Group(65, (0, -1), -2),
+    ],
+    80: [
+        Group(88, (0, 1)),
     ],
 }
 
 # Deco Tile Layer Rule
 layer_data = [2] * 9999
-layer_data[92:95] = [3] * 4
-layer_data[100:103] = [3] * 4
 
 # Tile Automata
 floor_automata = [

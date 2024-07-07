@@ -11,6 +11,7 @@ room_max_size = param.room_max_size
 map_padding = param.map_padding
 room_min_padding = param.room_min_padding
 room_max_padding = param.room_max_padding
+corridor_wide_auto = param.corridor_wide_auto
 corridor_wide = param.corridor_wide
 wall_height = param.wall_height
 MAX_LAYER = 6
@@ -140,23 +141,33 @@ class Dungeon:
       return dist
 
     def make_corridor(i, j):
-      cw, wh = corridor_wide, wall_height
       r1, r2 = self.room_list[i], self.room_list[j]
-
-      cx1 = random.randrange(r1.x1 + cw, r1.x2 - cw)
-      cy1 = random.randrange(r1.y1 + cw + wh, r1.y2 - cw)
-      cx2 = random.randrange(r2.x1 + cw, r2.x2 - cw)
-      cy2 = random.randrange(r2.y1 + cw + wh, r2.y2 - cw)
       dire = random.randint(0, 1)
 
-      for x in range(min(cx1, cx2 + 1) - cw, max(cx1, cx2 + 1) + cw):
-        by = cy1 if dire == 0 else cy2
-        for y in range(by - cw - wh, by + cw + 1):
-          self.map_basic[y][x][0] = tile.floor
-      for y in range(min(cy1, cy2 + 1) - cw - wh, max(cy1, cy2 + 1) + cw):
-        bx = cx2 if dire == 0 else cx1
-        for x in range(bx - cw, bx + cw + 1):
-          self.map_basic[y][x][0] = tile.floor
+      if corridor_wide_auto:
+        for x in range(min(r1.x1, r2.x1), max(r1.x2, r2.x2) + 1):
+          ry = (r1.y1, r1.y2) if dire == 0 else (r2.y1, r2.y2)
+          for y in range(ry[0], ry[1] + 1):
+            self.map_basic[y][x][0] = tile.floor
+        for y in range(min(r1.y1, r2.y1), max(r1.y2, r2.y2) + 1):
+          rx = (r2.x1, r2.x2) if dire == 0 else (r1.x1, r1.x2)
+          for x in range(rx[0], rx[1] + 1):
+            self.map_basic[y][x][0] = tile.floor
+      else:
+        cw, wh = corridor_wide, wall_height
+        cx1 = random.randrange(r1.x1 + cw, r1.x2 - cw)
+        cy1 = random.randrange(r1.y1 + cw + wh, r1.y2 - cw)
+        cx2 = random.randrange(r2.x1 + cw, r2.x2 - cw)
+        cy2 = random.randrange(r2.y1 + cw + wh, r2.y2 - cw)
+
+        for x in range(min(cx1, cx2 + 1) - cw, max(cx1, cx2 + 1) + cw):
+          by = cy1 if dire == 0 else cy2
+          for y in range(by - cw - wh, by + cw + 1):
+            self.map_basic[y][x][0] = tile.floor
+        for y in range(min(cy1, cy2 + 1) - cw - wh, max(cy1, cy2 + 1) + cw):
+          bx = cx2 if dire == 0 else cx1
+          for x in range(bx - cw, bx + cw + 1):
+            self.map_basic[y][x][0] = tile.floor
 
     dist = self.room_graph
     min_dist = floyd_warshall(self.room_graph)
@@ -169,7 +180,8 @@ class Dungeon:
   def place_wall_ceil(self):
 
     def place_wall(x, y):
-      if self.map_basic[y + 1][x][0] == tile.floor:
+      if (y < map_height - wall_height
+          and self.map_basic[y + 1][x][0] == tile.floor):
         for dy in range(1, wall_height + 1):
           self.map_basic[y + dy][x][0] = tile.wall
 
@@ -187,9 +199,6 @@ class Dungeon:
 
       for d in dire:
         nx, ny = x + d[0], y + d[1]
-        if not (0 <= nx < map_width and 0 <= ny < map_height):
-          continue
-
         nv = self.map_basic[ny][nx][0]
         isCeil = isCeil or nv == tile.blank
 
@@ -205,7 +214,10 @@ class Dungeon:
       place_wall(x, y)
 
   def place_area(self, area_tile, base_id, layer):
+    (CAP_MIN, CAP_MAX) = (area_tile.capacity_min, area_tile.capacity_max)
     target = area_tile.id
+    pd = map_padding
+    dire = [(1, 0), (0, -1), (-1, 0), (0, 1)]
 
     class AreaSeed:
 
@@ -239,7 +251,6 @@ class Dungeon:
     def spread(seed):
       self.map_basic[seed.pos[1]][seed.pos[0]][layer] = target
       buffer = {seed.pos}
-      dire = [(1, 0), (0, -1), (-1, 0), (0, 1)]
 
       for _ in range(seed.capacity):
         iter_buffer = buffer.copy()
@@ -260,7 +271,6 @@ class Dungeon:
                 self.map_basic[y][x][layer] = target
 
     def trim():
-      dire = [(1, 0), (0, -1), (-1, 0), (0, 1)]
 
       def clean_out(x, y):
         if self.map_basic[y][x][layer] == target:
@@ -294,13 +304,60 @@ class Dungeon:
         for x in range(pd, map_width - pd):
           fill(x, y)
 
-    (CAP_MIN, CAP_MAX) = (area_tile.capacity_min, area_tile.capacity_max)
-    pd = map_padding
+    def place_carpet():
 
-    seed_list = create_seed()
-    for seed in seed_list:
-      spread(seed)
-    trim()
+      def create_square(x1, y1, x2, y2):
+        if x1 < 0 or y1 < 0 or x2 >= map_width or y2 >= map_height:
+          return
+
+        ok = True
+        for y in range(y1, y2 + 1):
+          for x in range(x1, x2 + 1):
+            ok = ok and self.map_basic[y][x][0] == base_id
+            if layer == 1:
+              ok = ok and self.map_basic[y][x][layer] == 0
+
+        if ok:
+          for y in range(y1, y2 + 1):
+            for x in range(x1, x2 + 1):
+              self.map_basic[y][x][layer] = target
+
+      for room in self.room_list:
+
+        def diagonal_search(sx, sy, d, iter):
+          dire = [(1, 1), (-1, 1), (1, -1), (-1, -1)]
+          x, y = sx, sy
+          for _ in range(iter):
+            if random.random() < area_tile.seed_gen_rate:
+              lx = random.randint(CAP_MIN, CAP_MAX)
+              ly = random.randint(CAP_MIN, CAP_MAX)
+              if d == 0:
+                create_square(x, y, x + lx, y + ly)
+              if d == 1:
+                create_square(x - lx, y, x, y + ly)
+              if d == 2:
+                create_square(x, y - ly, x + lx, y)
+              if d == 3:
+                create_square(x - lx, y - ly, x, y)
+
+            x += dire[d][0]
+            y += dire[d][1]
+
+        x1, y1 = room.x1 + 1, room.y1 + wall_height + 1
+        x2, y2 = room.x2 - 2, room.y2 - 2
+        iter = min((x1 + x2) // 2, (y1 + y2) // 2)
+        plist = [(x1, y1), (x2, y1), (x1, y2), (x2, y2)]
+
+        for i in range(4):
+          diagonal_search(plist[i][0], plist[i][1], i, iter)
+
+    if area_tile.carpet:
+      place_carpet()
+    else:
+      seed_list = create_seed()
+      for seed in seed_list:
+        spread(seed)
+      trim()
 
   def place_area_all(self):
     for tx in tile.extra:
@@ -338,6 +395,8 @@ class Dungeon:
                       and self.map_basic[y][x + w][0] == base_id)
             else:
               flag = False
+          flag = (flag and
+                  (x - 1 == 0 or self.map_basic[y - 1][x - 1][0] == tile.wall))
           flag = (flag
                   and (x + wide == map_width
                        or self.map_basic[y - 1][x + wide][0] == tile.wall))
@@ -347,7 +406,8 @@ class Dungeon:
 
   def place_cascade_all(self):
     for tx in tile.extra:
-      self.place_cascade(tx)
+      if tx.cascade is not None:
+        self.place_cascade(tx)
 
   def define_tile_id(self):
 
@@ -436,22 +496,37 @@ class Dungeon:
 
   def place_decorations(self):
 
+    def check_adj_wall(x, y, cond):
+      flag = True
+      if cond.adj_wall[0]:
+        flag = flag and self.map_basic[y - 1][x][0] == tile.wall
+      if cond.adj_wall[1]:
+        flag = flag and self.map_basic[y + 1][x][0] == tile.ceil
+      if cond.adj_wall[2]:
+        flag = flag and (self.map_basic[y][x + 1][0] == tile.ceil
+                         or self.map_basic[y][x - 1][0] == tile.ceil)
+      return flag
+
     def gen_deco_tiles(x, y):
       tiles = []
       tile_basic = self.map_basic[y][x][0]
       for cond in tile.gen_normal.get(tile_basic, []):
-        if (self.map[y][x][tile.layer_data[cond.target]] == 0
-            and random.random() < cond.prob):
+        if (self.map[y][x][tile.layer_data[cond.target]] == tile.transparent
+            and random.random() < cond.prob and check_adj_wall(x, y, cond)):
           tiles.append(cond)
       return tiles
 
     def place_deco(x, y, target):
-      tile_basic = self.map_basic[y][x][0]
       group = tile.gen_group.get(target, [])
       ok = True
       for member in group:
         nx, ny = (x + member.dx, y + member.dy)
-        ok = ok and self.map_basic[ny][nx][0] == tile_basic
+        ok = ok and self.map[ny][nx][tile.layer_data[
+            member.target]] == tile.transparent
+        if member.base_id != -2:
+          tile_basic = (self.map_basic[y][x][0]
+                        if member.base_id == -1 else member.base_id)
+          ok = ok and self.map_basic[ny][nx][0] == tile_basic
 
       if ok:
         self.map[y][x][tile.layer_data[target]] = target
@@ -474,10 +549,9 @@ class Dungeon:
         ut = self.map_basic[y - 1][x][0]
         lt = self.map_basic[y][x + 1][0]
         ct = self.map_basic[y][x][0]
-        cond1 = (y == 0 or (ut == tile.ceil or ut == tile.wall))
-        cond2 = (x < map_width - 1
-                 and (lt != tile.ceil and lt != tile.wall
-                      and lt not in tile.TileCore.type_cascade))
+        cond1 = (ut == tile.ceil or ut == tile.wall)
+        cond2 = (lt != tile.ceil and lt != tile.wall
+                 and lt not in tile.TileCore.type_cascade)
         cond3 = (ct == tile.ceil or ct == tile.wall)
         if cond1 and cond2 and cond3:
           self.map[y][x + 1][4] = 5

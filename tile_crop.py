@@ -13,6 +13,13 @@ def create_image():
   return Image.new('RGBA', (tsz, tsz), (0, 0, 0, 0))
 
 
+def open_img(path):
+  try:
+    return Image.open(path)
+  except FileNotFoundError:
+    return None
+
+
 def crop_2D(img, W, H, width=tsz, height=tsz):
   output = [[None for _ in range(W)] for _ in range(H)]
   for y in range(H):
@@ -155,51 +162,79 @@ def crop_wall(img):
 
 
 def main():
-  A1 = []
-  A1_pre = crop_2D(Image.open(img_path.A1), 8, 4, 2 * tsz, 3 * tsz)
-  for p in [(0, 0), (0, 1), (3, 0), (3, 1), (4, 0), (7, 0), (4, 1), (7, 1),
-            (0, 2), (3, 2), (0, 3), (3, 3), (4, 2), (7, 2), (4, 3), (7, 3)]:
-    x, y = p[0], p[1]
-    if (x == 7 or (x == 3 and y > 1)):
-      A1.append(crop_cascade(A1_pre[y][x]))
-    else:
-      A1.append(crop_floor(A1_pre[y][x]))
+  A1, A2, A3, A4, A5, B, C, D, E = [[] for _ in range(9)]
 
-  A2 = []
-  A2_pre = crop_2D(Image.open(img_path.A2), 8, 4, 2 * tsz, 3 * tsz)
-  for y in range(4):
-    for x in range(8):
-      A2.append(crop_floor(A2_pre[y][x]))
+  A1_img = open_img(img_path.A1)
+  A2_img = open_img(img_path.A2)
+  A3_img = open_img(img_path.A3)
+  A4_img = open_img(img_path.A4)
+  A5_img = open_img(img_path.A5)
+  B_img = open_img(img_path.B)
+  C_img = open_img(img_path.C)
+  D_img = open_img(img_path.D)
+  E_img = open_img(img_path.E)
 
-  A3 = []
-  A3_pre = crop_2D(Image.open(img_path.A3), 8, 4, 2 * tsz, 2 * tsz)
-  for y in range(4):
-    for x in range(8):
-      A3.append(crop_wall(A3_pre[y][x]))
-
-  A4 = []
-  A4_pre = crop_A4(Image.open(img_path.A4))
-  for y in range(6):
-    for x in range(8):
-      if y % 2 == 0:
-        A4.append(crop_floor(A4_pre[y][x]))
+  if (A1_img is not None):
+    A1_pre = crop_2D(A1_img, 8, 4, 2 * tsz, 3 * tsz)
+    for p in [(0, 0), (0, 1), (3, 0), (3, 1), (4, 0), (7, 0), (4, 1), (7, 1),
+              (0, 2), (3, 2), (0, 3), (3, 3), (4, 2), (7, 2), (4, 3), (7, 3)]:
+      x, y = p[0], p[1]
+      if (x == 7 or (x == 3 and y > 1)):
+        A1.append(crop_cascade(A1_pre[y][x]))
       else:
-        A4.append(crop_wall(A4_pre[y][x]))
+        A1.append(crop_floor(A1_pre[y][x]))
 
-  A5 = crop_1D(Image.open(img_path.A5), 8, 16)
-  B = crop_1D(Image.open(img_path.B), 8, 16, 2)
-  C = crop_1D(Image.open(img_path.C), 8, 16, 2)
+  if (A2_img is not None):
+    A2_pre = crop_2D(A2_img, 8, 4, 2 * tsz, 3 * tsz)
+    for y in range(4):
+      for x in range(8):
+        A2.append(crop_floor(A2_pre[y][x]))
+
+  if (A3_img is not None):
+    A3_pre = crop_2D(A3_img, 8, 4, 2 * tsz, 2 * tsz)
+    for y in range(4):
+      for x in range(8):
+        A3.append(crop_wall(A3_pre[y][x]))
+
+  if (A4_img is not None):
+    A4_pre = crop_A4(A4_img)
+    for y in range(6):
+      for x in range(8):
+        if y % 2 == 0:
+          A4.append(crop_floor(A4_pre[y][x]))
+        else:
+          A4.append(crop_wall(A4_pre[y][x]))
+
+  if (A5_img is not None):
+    A5 = crop_1D(A5_img, 8, 16)
+  if (B_img is not None):
+    B = crop_1D(B_img, 8, 16, 2)
+  if (C_img is not None):
+    C = crop_1D(C_img, 8, 16, 2)
+  if (D_img is not None):
+    D = crop_1D(D_img, 8, 16, 2)
+  if (E_img is not None):
+    E = crop_1D(E_img, 8, 16, 2)
 
   output = [None] * TILESET_LEN
-  output[2048:2816] = [item for row in A1 for item in row]
-  output[2816:4352] = [item for row in A2 for item in row]
-  output[4352:5888] = [item for row in A3 for item in row]
-  output[5888:8192] = [item for row in A4 for item in row]
-  output[1536:1664] = A5
-  output[0:256] = B
-  output[256:512] = C
-  # output[512:768] = D
-  # output[768:1024] = E
+
+  def flatten_2d_list(list):
+    return [item for row in list for item in row]
+
+  assignments = [
+      (2048, 2816, A1, True),
+      (2816, 4352, A2, True),
+      (4352, 5888, A3, True),
+      (5888, 8192, A4, True),
+      (1536, 1664, A5, False),
+      (0, 256, B, False),
+      (256, 512, C, False),
+      (512, 768, D, False),
+      (768, 1024, E, False),
+  ]
+  for (start, end, data, flatten) in assignments:
+    if data:
+      output[start:end] = flatten_2d_list(data) if flatten else data
 
   return output
 
@@ -208,5 +243,5 @@ def print2(output):
   test = Image.new('RGBA', (tsz * 6, tsz * 8), (0, 0, 0, 0))
   for y in range(8):
     for x in range(6):
-      test.paste(output[2480 + y * 6 + x], (x * tsz, y * tsz))
+      test.paste(output[2048 + y * 6 + x], (x * tsz, y * tsz))
   test.save('output.png')
