@@ -32,7 +32,7 @@ class AreaTile:
         self.seed_gen_rate = seed_rate
         self.capacity_min = cap_min
         self.capacity_max = cap_max
-        self.carpet = carpet
+        self.carpet = carpet  # only BSP
 
 
 class CascadeTile:
@@ -51,8 +51,9 @@ wall = TileCore.id_gen(1)
 ceil = TileCore.id_gen(0)
 floor_cover = []
 extra = [
-    AreaTileSet(AreaTile(seed_rate=0.02, cap_min=3, cap_max=4, carpet=True))
+    # AreaTileSet(AreaTile(seed_rate=0.02, cap_min=3, cap_max=4, carpet=False))
 ]
+path = TileCore.id_gen(0)
 
 
 # Normal Deco Tile Rule

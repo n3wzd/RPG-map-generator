@@ -243,5 +243,5 @@ def print2(output):
   test = Image.new('RGBA', (tsz * 6, tsz * 8), (0, 0, 0, 0))
   for y in range(8):
     for x in range(6):
-      test.paste(output[2048 + y * 6 + x], (x * tsz, y * tsz))
+      test.paste(output[6800 + y * 6 + x], (x * tsz, y * tsz))
   test.save('output.png')

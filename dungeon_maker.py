@@ -1,20 +1,40 @@
 import random
+import heapq
 from collections import deque
 
 import parameter as param
 import tile_rule as tile
 
+# Map Basic
 map_width = param.map_width
 map_height = param.map_height
+map_padding = param.map_padding
+map_type = param.map_type
+MAX_LAYER = 6
+
+## Dungeon(BSP)
 room_min_size = param.room_min_size
 room_max_size = param.room_max_size
-map_padding = param.map_padding
 room_min_padding = param.room_min_padding
 room_max_padding = param.room_max_padding
 corridor_wide_auto = param.corridor_wide_auto
 corridor_wide = param.corridor_wide
 wall_height = param.wall_height
-MAX_LAYER = 6
+room_freq = param.room_freq
+
+## Cave(cellular_automata)
+wall_probability = param.wall_probability
+cellular_iterations = param.cellular_iterations
+birth_limit = param.birth_limit
+death_limit = param.death_limit
+area_threshold = param.area_threshold
+# expand_iter = param.expand_iter
+
+## Town(A*)
+path_random_factor = param.path_random_factor
+house_num = param.house_num
+house_min_margin = param.house_min_margin
+town_boundary_margin = param.town_boundary_margin
 
 
 class Room:
@@ -34,184 +54,400 @@ class Dungeon:
                 for _ in range(map_height)]
     self.map_basic = [[[tile.blank, tile.transparent]
                        for _ in range(map_width)] for _ in range(map_height)]
-    self.room_graph = []
-    self.room_list = []
+    self.room_graph = []  # only BSP
+    self.room_list = []  # only BSP
     self.generate_dungeon()
 
   def generate_dungeon(self):
-    mp = map_padding
-    self.generate_map(mp, mp, map_width - mp, map_height - mp)
-    self.generate_graph()
-    self.connect_rooms()
-    self.place_wall_ceil()
+    if map_type == 0:
+      self.build_BSP()
+    if map_type == 1:
+      self.build_cellular_automata()
+    if map_type == 2:
+      self.build_plain()
+    self.place_wall()
+    self.place_ceil()
+    self.place_path()
     self.place_area_all()
     self.place_cascade_all()
     self.place_decorations()
     self.place_shadows()
     self.define_tile_id()
 
-  def generate_map(self, x1, y1, x2, y2):
+  def build_BSP(self):
+    space_min_width = room_min_size + room_max_padding * 2 + 1
+    space_max_width = room_max_size + room_max_padding * 2 + 1
+    space_min_height = room_min_size + room_max_padding * 2 + wall_height + 1
+    space_max_height = room_max_size + room_max_padding * 2 + wall_height + 1
 
-    def define_separator(a, b):
-      d = room_min_size
-      p, q = a + d, b - d
-      if p <= q:
-        return random.randint(a + 1, b - 1)
+    def generate_map(x1, y1, x2, y2):
+
+      def define_separator(a, b, is_y):
+        d = space_min_height if is_y else space_min_width
+        p, q = a + d, b - d
+        if p <= q:
+          return random.randint(a + 1, b - 1)
+        else:
+          r = random.randint(1, b - a - d)
+          return random.choice([a + r, b - r])
+
+      def define_separator_per(x1, y1, x2, y2):
+        d = space_min_width
+        a, b = (x1, x2) if (y2 - y1) < (x2 - x1) else (y1, y2)
+
+        if b - a == d:
+          return 1
+
+        p, q = a + d, b - d
+        return 1 / (b - a) if p <= q else 1 / (b - a - d) * 2
+
+      space_width = x2 - x1
+      space_height = y2 - y1
+
+      if (space_width < space_min_width or space_height < space_min_height):
+        return
+
+      if (space_width <= space_max_width and space_height <= space_max_height
+          and random.random() < define_separator_per(x1, y1, x2, y2)
+          and random.random() < room_freq):
+        generate_room(x1, y1, x2, y2)
+        return
+
+      if (space_width == space_min_width or space_height == space_min_height):
+        return
+
+      if (random.random() < 0.5
+          if space_width == space_height else space_height < space_width):
+        cx = define_separator(x1, x2, False)
+        generate_map(x1, y1, cx, y2)
+        generate_map(cx, y1, x2, y2)
       else:
-        r = random.randint(1, b - a - d)
-        return random.choice([a + r, b - r])
+        cy = define_separator(y1, y2, True)
+        generate_map(x1, y1, x2, cy)
+        generate_map(x1, cy, x2, y2)
 
-    def define_separator_per(x1, y1, x2, y2):
-      d = room_min_size
-      a, b = (x1, x2) if (y2 - y1) < (x2 - x1) else (y1, y2)
+    def generate_graph():
 
-      if b - a == d:
-        return 1
+      def rect_distance(a, b):
+        x_dist = max(0, b.x1 - a.x2, a.x1 - b.x2)
+        y_dist = max(0, b.y1 - a.y2, a.y1 - b.y2)
 
-      p, q = a + d, b - d
-      return 1 / (b - a) if p <= q else 1 / (b - a - d) * 2
+        if x_dist == 0:
+          return y_dist
+        elif y_dist == 0:
+          return x_dist
+        else:
+          return x_dist + y_dist + 1
 
-    room_width = x2 - x1
-    room_height = y2 - y1
+      R = self.room_list
+      self.room_graph = [[0 for _ in range(len(R))] for _ in range(len(R))]
 
-    if (room_width < room_min_size or room_height < room_min_size):
-      return
+      for i in range(len(R)):
+        for j in range(len(R)):
+          if i != j:
+            dist = rect_distance(R[i], R[j])
+            self.room_graph[j][i] = self.room_graph[i][j] = dist
 
-    if (room_width <= room_max_size and room_height <= room_max_size
-        and random.random() < define_separator_per(x1, y1, x2, y2)):
-      self.generate_room(x1, y1, x2, y2)
-      return
+    def generate_room(x1, y1, x2, y2):
+      padding = random.randint(room_min_padding, room_max_padding) + 1
+      x1 += padding
+      x2 -= padding
+      y1 += padding + wall_height
+      y2 -= padding
 
-    if (random.random() < 0.5
-        if room_width == room_height else room_height < room_width):
-      cx = define_separator(x1, x2)
-      self.generate_map(x1, y1, cx, y2)
-      self.generate_map(cx, y1, x2, y2)
-    else:
-      cy = define_separator(y1, y2)
-      self.generate_map(x1, y1, x2, cy)
-      self.generate_map(x1, cy, x2, y2)
+      room = Room(x1, y1, x2, y2, len(self.room_list))
+      for y in range(y1, y2):
+        for x in range(x1, x2):
+          self.map_basic[y][x][0] = tile.floor
+      self.room_list.append(room)
 
-  def generate_graph(self):
+    def connect_rooms():
 
-    def rect_distance(a, b):
-      x_dist = max(0, b.x1 - a.x2, a.x1 - b.x2)
-      y_dist = max(0, b.y1 - a.y2, a.y1 - b.y2)
+      def floyd_warshall(graph):
+        n = len(graph)
+        dist = [row[:] for row in graph]
 
-      if x_dist == 0:
-        return y_dist
-      elif y_dist == 0:
-        return x_dist
-      else:
-        return x_dist + y_dist + 1
+        for k in range(n):
+          for i in range(n):
+            for j in range(n):
+              dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])
 
-    R = self.room_list
-    self.room_graph = [[0 for _ in range(len(R))] for _ in range(len(R))]
+        return dist
 
-    for i in range(len(R)):
-      for j in range(len(R)):
-        if i != j:
-          dist = rect_distance(R[i], R[j])
-          self.room_graph[j][i] = self.room_graph[i][j] = dist
+      def make_corridor(i, j):
+        r1, r2 = self.room_list[i], self.room_list[j]
+        dire = random.randint(0, 1)
 
-  def generate_room(self, x1, y1, x2, y2):
-    padding = random.randint(room_min_padding, room_max_padding)
-    x1 += padding
-    x2 -= padding
-    y1 += padding
-    y2 -= padding
+        if corridor_wide_auto:
+          for x in range(min(r1.x1, r2.x1), max(r1.x2, r2.x2) + 1):
+            ry = (r1.y1, r1.y2) if dire == 0 else (r2.y1, r2.y2)
+            for y in range(ry[0], ry[1] + 1):
+              self.map_basic[y][x][0] = tile.floor
+          for y in range(min(r1.y1, r2.y1), max(r1.y2, r2.y2) + 1):
+            rx = (r2.x1, r2.x2) if dire == 0 else (r1.x1, r1.x2)
+            for x in range(rx[0], rx[1] + 1):
+              self.map_basic[y][x][0] = tile.floor
+        else:
+          cw = corridor_wide
+          cx1 = random.randrange(r1.x1 + cw, r1.x2 - cw)
+          cy1 = random.randrange(r1.y1 + cw, r1.y2 - cw)
+          cx2 = random.randrange(r2.x1 + cw, r2.x2 - cw)
+          cy2 = random.randrange(r2.y1 + cw, r2.y2 - cw)
 
-    room = Room(x1, y1, x2, y2, len(self.room_list))
-    for y in range(y1, y2):
-      for x in range(x1, x2):
+          for x in range(min(cx1, cx2 + 1) - cw, max(cx1, cx2 + 1) + cw):
+            by = cy1 if dire == 0 else cy2
+            for y in range(by - cw, by + cw + 1):
+              self.map_basic[y][x][0] = tile.floor
+          for y in range(min(cy1, cy2 + 1) - cw, max(cy1, cy2 + 1) + cw):
+            bx = cx2 if dire == 0 else cx1
+            for x in range(bx - cw, bx + cw + 1):
+              self.map_basic[y][x][0] = tile.floor
+
+      dist = self.room_graph
+      min_dist = floyd_warshall(self.room_graph)
+
+      for i in range(len(dist)):
+        for j in range(i + 1, len(dist)):
+          if dist[i][j] == min_dist[i][j]:
+            make_corridor(i, j)
+
+    mp = map_padding
+    generate_map(mp, mp, map_width - mp, map_height - mp)
+    generate_graph()
+    connect_rooms()
+
+  def build_cellular_automata(self):
+    mp = map_padding + 1
+
+    def initialize():
+      for y in range(mp, map_height - mp):
+        for x in range(mp, map_height - mp):
+          self.map_basic[y][x][0] = (tile.blank if random.random()
+                                     < wall_probability else tile.floor)
+
+    def count_wall(x, y):
+      cnt = 0
+      for dy in range(-1, 2):
+        for dx in range(-1, 2):
+          if dx == 0 and dy == 0:
+            continue
+          nx, ny = x + dx, y + dy
+          if 0 <= nx < map_width and 0 <= ny < map_height:
+            cnt += 1 if self.map_basic[ny][nx][0] == tile.blank else 0
+          else:
+            cnt += 1
+      return cnt
+
+    def simulate():
+      for _ in range(cellular_iterations):
+        new_map = [[tile.blank for _ in range(map_width)]
+                   for _ in range(map_height)]
+        for y in range(mp, map_height - mp):
+          for x in range(mp, map_height - mp):
+            cnt = count_wall(x, y)
+            if self.map_basic[y][x][0] == tile.blank:
+              new_map[y][x] = tile.blank if cnt >= birth_limit else tile.floor
+            else:
+              new_map[y][x] = tile.blank if cnt > death_limit else tile.floor
+
+        for y in range(map_height):
+          for x in range(map_width):
+            self.map_basic[y][x][0] = new_map[y][x]
+
+    """
+    def expand():
+      visited = set()
+
+      def BFS(x, y):
+        queue = deque([(x, y)])
+        visited.add((x, y))
+        dire = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+
+        while queue:
+          x, y = queue.popleft()
+
+          for d in dire:
+            nx, ny = x + d[0], y + d[1]
+            if ny < 0 or ny >= map_height or nx < 0 or nx >= map_width:
+              continue
+            if ((nx, ny) not in visited
+                and self.map_basic[ny][nx][0] == tile.floor):
+              visited.add((nx, ny))
+              queue.append((nx, ny))
+            if self.map_basic[ny][nx][0] == tile.blank:
+              self.map_basic[ny][nx][0] = tile.floor
+              visited.add((nx, ny))
+
+      for y in range(map_height):
+        for x in range(map_width):
+          if self.map_basic[y][x][0] == tile.floor and (x, y) not in visited:
+            BFS(x, y)
+    """
+
+    initialize()
+    simulate()
+    # for _ in range(expand_iter):
+    #   expand()
+
+  def build_plain(self):
+    for y in range(map_height):
+      for x in range(map_width):
         self.map_basic[y][x][0] = tile.floor
-    self.room_list.append(room)
 
-  def connect_rooms(self):
+  def place_wall(self):
 
-    def floyd_warshall(graph):
-      n = len(graph)
-      dist = [row[:] for row in graph]
+    def delete_wallcovered_floor():
 
-      for k in range(n):
-        for i in range(n):
-          for j in range(n):
-            dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])
+      def fill_blank(x, y):
+        for dy in range(wall_height + 1):
+          self.map_basic[y - dy - 1][x][0] = tile.blank
 
-      return dist
+      for y in range(map_height - 1, wall_height, -1):
+        for x in range(map_width):
+          if (self.map_basic[y - 1][x][0] == tile.blank
+              and self.map_basic[y][x][0] == tile.floor):
+            fill_blank(x, y)
 
-    def make_corridor(i, j):
-      r1, r2 = self.room_list[i], self.room_list[j]
-      dire = random.randint(0, 1)
+    def fill_hole():
+      visited = set()
 
-      if corridor_wide_auto:
-        for x in range(min(r1.x1, r2.x1), max(r1.x2, r2.x2) + 1):
-          ry = (r1.y1, r1.y2) if dire == 0 else (r2.y1, r2.y2)
-          for y in range(ry[0], ry[1] + 1):
-            self.map_basic[y][x][0] = tile.floor
-        for y in range(min(r1.y1, r2.y1), max(r1.y2, r2.y2) + 1):
-          rx = (r2.x1, r2.x2) if dire == 0 else (r1.x1, r1.x2)
-          for x in range(rx[0], rx[1] + 1):
-            self.map_basic[y][x][0] = tile.floor
-      else:
-        cw, wh = corridor_wide, wall_height
-        cx1 = random.randrange(r1.x1 + cw, r1.x2 - cw)
-        cy1 = random.randrange(r1.y1 + cw + wh, r1.y2 - cw)
-        cx2 = random.randrange(r2.x1 + cw, r2.x2 - cw)
-        cy2 = random.randrange(r2.y1 + cw + wh, r2.y2 - cw)
+      def BFS(x, y):
+        cnt = 0
+        queue = deque([(x, y)])
+        catched = set()
+        catched.add((x, y))
+        visited.add((x, y))
+        dire = [(0, 1), (1, 0), (0, -1), (-1, 0)]
 
-        for x in range(min(cx1, cx2 + 1) - cw, max(cx1, cx2 + 1) + cw):
-          by = cy1 if dire == 0 else cy2
-          for y in range(by - cw - wh, by + cw + 1):
-            self.map_basic[y][x][0] = tile.floor
-        for y in range(min(cy1, cy2 + 1) - cw - wh, max(cy1, cy2 + 1) + cw):
-          bx = cx2 if dire == 0 else cx1
-          for x in range(bx - cw, bx + cw + 1):
-            self.map_basic[y][x][0] = tile.floor
+        while queue:
+          x, y = queue.popleft()
 
-    dist = self.room_graph
-    min_dist = floyd_warshall(self.room_graph)
+          for d in dire:
+            nx, ny = x + d[0], y + d[1]
+            if ny < 0 or ny >= map_height or nx < 0 or nx >= map_width:
+              continue
+            if ((nx, ny) not in visited
+                and self.map_basic[ny][nx][0] == tile.floor):
+              visited.add((nx, ny))
+              catched.add((nx, ny))
+              queue.append((nx, ny))
+              cnt += 1
 
-    for i in range(len(dist)):
-      for j in range(i + 1, len(dist)):
-        if dist[i][j] == min_dist[i][j]:
-          make_corridor(i, j)
+        if cnt <= area_threshold:
+          for v in catched:
+            self.map_basic[v[1]][v[0]][0] = tile.blank
 
-  def place_wall_ceil(self):
+      for y in range(map_height):
+        for x in range(map_width):
+          if self.map_basic[y][x][0] == tile.floor and (x, y) not in visited:
+            BFS(x, y)
 
-    def place_wall(x, y):
-      if (y < map_height - wall_height
-          and self.map_basic[y + 1][x][0] == tile.floor):
-        for dy in range(1, wall_height + 1):
-          self.map_basic[y + dy][x][0] = tile.wall
+    def make_wall(x, y):
+      for dy in range(wall_height):
+        ny = y - dy
+        if ny >= 0:
+          self.map_basic[ny][x][0] = tile.wall
 
-    start = self.room_list[0]
+    delete_wallcovered_floor()
+    if map_type == 1:
+      fill_hole()
+    for y in range(map_height - 1):
+      for x in range(map_width):
+        if (self.map_basic[y][x][0] == tile.blank
+            and self.map_basic[y + 1][x][0] == tile.floor):
+          make_wall(x, y)
+
+  def place_ceil(self):
     visited = set()
-    queue = deque([(start.x1, start.y1)])
-    visited.add((start.x1, start.y1))
-    dire = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (1, -1), (-1, -1),
-            (-1, 1)]
-    ceil_set = set()
 
-    while queue:
-      x, y = queue.popleft()
-      isCeil = False
+    def BFS(sx, sy):
+      queue = deque([(sx, sy)])
+      visited.add((sx, sy))
+      dire = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (1, -1), (-1, -1),
+              (-1, 1)]
 
-      for d in dire:
-        nx, ny = x + d[0], y + d[1]
-        nv = self.map_basic[ny][nx][0]
-        isCeil = isCeil or nv == tile.blank
+      while queue:
+        x, y = queue.popleft()
+        isCeil = False
 
-        if (nx, ny) not in visited and nv != tile.blank:
-          visited.add((nx, ny))
-          queue.append((nx, ny))
+        for d in dire:
+          nx, ny = x + d[0], y + d[1]
+          if ny < 0 or ny >= map_height or nx < 0 or nx >= map_width:
+            continue
 
-      if isCeil:
-        self.map_basic[y][x][0] = tile.ceil
-        ceil_set.add((x, y))
+          nv = self.map_basic[ny][nx][0]
+          isCeil = isCeil or nv == tile.floor or nv == tile.wall
 
-    for x, y in ceil_set:
-      place_wall(x, y)
+          if (nx, ny) not in visited and nv == tile.blank:
+            visited.add((nx, ny))
+            queue.append((nx, ny))
+
+        if isCeil:
+          self.map_basic[y][x][0] = tile.ceil
+
+    for y in range(map_height):
+      for x in range(map_width):
+        if self.map_basic[y][x][0] == tile.blank and (x, y) not in visited:
+          BFS(x, y)
+
+  def place_path(self):
+    W = map_width
+    H = map_height
+
+    def place_structure():
+      list = []
+    
+    def a_star_search(start, end):
+
+      def heuristic(a, b):
+        r = random.uniform(-path_random_factor, path_random_factor)
+        return max(abs(b[0] - a[0]), abs(b[1] - a[1])) + r  # Octile Distance
+
+      dist = {(x, y): float('inf') for x in range(W) for y in range(H)}
+      dist[start] = 0
+      pq = [(0, start)]
+      visited = {(x, y): False for x in range(W) for y in range(H)}
+      prev = {(x, y): None for x in range(W) for y in range(H)}
+      dire = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+      while pq:
+        h_dist, (x, y) = heapq.heappop(pq)
+        if (x, y) == end:
+          break
+
+        if visited[(x, y)]:
+          continue
+        visited[(x, y)] = True
+
+        for dx, dy in dire:
+          nx, ny = x + dx, y + dy
+
+          if not (0 <= nx < W and 0 <= ny < H):
+            continue
+          # if grid[ny][nx] == 1:
+          #   continue
+
+          new_dist = dist[(x, y)] + 1
+          if new_dist < dist[(nx, ny)]:
+            dist[(nx, ny)] = new_dist
+            prev[(nx, ny)] = (x, y)
+            heapq.heappush(pq, (new_dist + heuristic((nx, ny), end), (nx, ny)))
+
+      path = []
+      step = end
+      while step is not None:
+        path.append(step)
+        step = prev[step]
+      path.reverse()
+
+      return path
+
+    start = (3, 3)
+    end = (24, 24)
+
+    path = a_star_search(start, end)
+    for (x, y) in path:
+      self.map_basic[y][x][0] = tile.path
 
   def place_area(self, area_tile, base_id, layer):
     (CAP_MIN, CAP_MAX) = (area_tile.capacity_min, area_tile.capacity_max)
@@ -343,8 +579,8 @@ class Dungeon:
             x += dire[d][0]
             y += dire[d][1]
 
-        x1, y1 = room.x1 + 1, room.y1 + wall_height + 1
-        x2, y2 = room.x2 - 2, room.y2 - 2
+        x1, y1 = room.x1, room.y1
+        x2, y2 = room.x2 - 1, room.y2 - 1
         iter = min((x1 + x2) // 2, (y1 + y2) // 2)
         plist = [(x1, y1), (x2, y1), (x1, y2), (x2, y2)]
 
@@ -416,10 +652,12 @@ class Dungeon:
       for dy in range(3):
         for dx in range(3):
           nx, ny = x + dx - 1, y + dy - 1
-          cond = self.map_basic[y][x][r] == self.map_basic[ny][nx][r]
-          if dy == 0:
-            cond = (cond
-                    or self.map_basic[ny][nx][r] in tile.TileCore.type_cascade)
+          cond = True
+          if 0 <= nx < map_width and 0 <= ny < map_height:
+            cond = self.map_basic[y][x][r] == self.map_basic[ny][nx][r]
+            if dy == 0:
+              cond = (cond or self.map_basic[ny][nx][r]
+                      in tile.TileCore.type_cascade)
           dmap[dy][dx] = 1 if cond else 0
 
       for i in range(len(tile.floor_automata)):
@@ -447,11 +685,13 @@ class Dungeon:
       dire = [(-1, 0), (0, -1), (1, 0), (0, 1)]
       for i in range(4):
         nx, ny = x + dire[i][0], y + dire[i][1]
-        cond = (self.map_basic[y][x][r] == self.map_basic[ny][nx][r]
-                or self.map_basic[ny][nx][r] in tile.TileCore.type_cascade)
-        if dire[i][0] != 0:
-          cond = cond and dist_tile(x, y, tile.ceil) == dist_tile(
-              nx, ny, tile.ceil)
+        cond = True
+        if 0 <= nx < map_width and 0 <= ny < map_height:
+          cond = (self.map_basic[y][x][r] == self.map_basic[ny][nx][r]
+                  or self.map_basic[ny][nx][r] in tile.TileCore.type_cascade)
+          if dire[i][0] != 0:
+            cond = cond and dist_tile(x, y, tile.ceil) == dist_tile(
+                nx, ny, tile.ceil)
         dmap[i] = 1 if cond else 0
 
       for i in range(len(tile.wall_automata)):
@@ -469,7 +709,9 @@ class Dungeon:
       dire = [-1, 1]
       for i in range(2):
         nx = x + dire[i]
-        cond = self.map_basic[y][x][r] == self.map_basic[y][nx][r]
+        cond = True
+        if 0 <= nx < map_width:
+          cond = self.map_basic[y][x][r] == self.map_basic[y][nx][r]
         dmap[i] = 1 if cond else 0
 
       for i in range(len(tile.cascade_automata)):
@@ -555,6 +797,18 @@ class Dungeon:
         cond3 = (ct == tile.ceil or ct == tile.wall)
         if cond1 and cond2 and cond3:
           self.map[y][x + 1][4] = 5
+
+  """
+  def print_2d_array_pretty(self):
+    new_map = [[tile.blank for _ in range(map_width)]
+               for _ in range(map_height)]
+    for y in range(map_height):
+      for x in range(map_width):
+        new_map[y][x] = self.map_basic[y][x][0]
+
+    for row in new_map:
+      print(" ".join(map(str, row)))
+  """
 
 
 def main():

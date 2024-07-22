@@ -4,25 +4,45 @@ import tile_rule as tile
 tileset_id = 2
 map_id = 18
 
-# Dungeon
-map_width = 30
-map_height = 30
-room_min_size = 8
-room_max_size = 12
-map_padding = 4  # min = 1
-room_min_padding = 0
-room_max_padding = 0
-corridor_wide_auto = True
-corridor_wide = 2  # min = 1
-wall_height = 2
+# Map Basic
+map_width = 64
+map_height = 64
+map_padding = 4
+map_type = 2  # 0: BSP, 1: cellular_automata, 2: plain
 
+## Dungeon(BSP)
+room_min_size = 4  # only floor
+room_max_size = 20  # only floor
+room_min_padding = 1
+room_max_padding = 2
+corridor_wide_auto = False
+corridor_wide = 1
+wall_height = 2
+room_freq = 0.75
+
+## Cave(cellular_automata)
+wall_probability = 0.50
+cellular_iterations = 4
+birth_limit = 4
+death_limit = 4
+area_threshold = 20
+# expand_iter = 0
+
+## Town(A*)
+path_random_factor = 3
+house_num = 5
+house_min_margin = 5
+town_boundary_margin = 8
+
+# Theme
 theme = {
     tile.transparent: 0,
     tile.blank: 1536,
     tile.floor: 2816,
     tile.wall: 7184,  # 7808
     tile.ceil: 6800,  # 7472
-    tile.extra[0].base.id: 2912,  # 2048
+    # tile.extra[0].base.id: 2912,  # 2048
+    tile.path: 2912,
 }
 
 # tile.floor_cover[0].id: 3008,  # 3008
