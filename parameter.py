@@ -26,7 +26,6 @@ cellular_iterations = 4
 birth_limit = 4
 death_limit = 4
 area_threshold = 20
-# expand_iter = 0
 
 ## Town(A*)
 path_random_factor = 3
@@ -43,6 +42,7 @@ theme = {
     tile.ceil: 6800,  # 7472
     # tile.extra[0].base.id: 2912,  # 2048
     tile.path: 2912,
+    tile.house: 2144,
 }
 
 # tile.floor_cover[0].id: 3008,  # 3008

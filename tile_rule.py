@@ -54,6 +54,7 @@ extra = [
     # AreaTileSet(AreaTile(seed_rate=0.02, cap_min=3, cap_max=4, carpet=False))
 ]
 path = TileCore.id_gen(0)
+house = TileCore.id_gen(0)
 
 
 # Normal Deco Tile Rule

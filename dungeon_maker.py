@@ -28,7 +28,6 @@ cellular_iterations = param.cellular_iterations
 birth_limit = param.birth_limit
 death_limit = param.death_limit
 area_threshold = param.area_threshold
-# expand_iter = param.expand_iter
 
 ## Town(A*)
 path_random_factor = param.path_random_factor
@@ -37,7 +36,7 @@ house_min_margin = param.house_min_margin
 town_boundary_margin = param.town_boundary_margin
 
 
-class Room:
+class RectArea:
 
   def __init__(self, x1, y1, x2, y2, id):
     self.x1 = x1
@@ -54,7 +53,6 @@ class Dungeon:
                 for _ in range(map_height)]
     self.map_basic = [[[tile.blank, tile.transparent]
                        for _ in range(map_width)] for _ in range(map_height)]
-    self.room_graph = []  # only BSP
     self.room_list = []  # only BSP
     self.generate_dungeon()
 
@@ -67,12 +65,23 @@ class Dungeon:
       self.build_plain()
     self.place_wall()
     self.place_ceil()
-    self.place_path()
+    self.place_structure()
     self.place_area_all()
     self.place_cascade_all()
     self.place_decorations()
     self.place_shadows()
     self.define_tile_id()
+
+  def rect_distance(self, a, b):
+    x_dist = max(0, b.x1 - a.x2, a.x1 - b.x2)
+    y_dist = max(0, b.y1 - a.y2, a.y1 - b.y2)
+
+    if x_dist == 0:
+      return y_dist
+    elif y_dist == 0:
+      return x_dist
+    else:
+      return x_dist + y_dist + 1
 
   def build_BSP(self):
     space_min_width = room_min_size + room_max_padding * 2 + 1
@@ -127,26 +136,16 @@ class Dungeon:
         generate_map(x1, cy, x2, y2)
 
     def generate_graph():
-
-      def rect_distance(a, b):
-        x_dist = max(0, b.x1 - a.x2, a.x1 - b.x2)
-        y_dist = max(0, b.y1 - a.y2, a.y1 - b.y2)
-
-        if x_dist == 0:
-          return y_dist
-        elif y_dist == 0:
-          return x_dist
-        else:
-          return x_dist + y_dist + 1
-
       R = self.room_list
-      self.room_graph = [[0 for _ in range(len(R))] for _ in range(len(R))]
+      room_graph = [[0 for _ in range(len(R))] for _ in range(len(R))]
 
       for i in range(len(R)):
         for j in range(len(R)):
           if i != j:
-            dist = rect_distance(R[i], R[j])
-            self.room_graph[j][i] = self.room_graph[i][j] = dist
+            dist = self.rect_distance(R[i], R[j])
+            room_graph[j][i] = room_graph[i][j] = dist
+
+      return room_graph
 
     def generate_room(x1, y1, x2, y2):
       padding = random.randint(room_min_padding, room_max_padding) + 1
@@ -155,13 +154,13 @@ class Dungeon:
       y1 += padding + wall_height
       y2 -= padding
 
-      room = Room(x1, y1, x2, y2, len(self.room_list))
+      room = RectArea(x1, y1, x2, y2, len(self.room_list))
       for y in range(y1, y2):
         for x in range(x1, x2):
           self.map_basic[y][x][0] = tile.floor
       self.room_list.append(room)
 
-    def connect_rooms():
+    def connect_rooms(room_graph):
 
       def floyd_warshall(graph):
         n = len(graph)
@@ -203,8 +202,8 @@ class Dungeon:
             for x in range(bx - cw, bx + cw + 1):
               self.map_basic[y][x][0] = tile.floor
 
-      dist = self.room_graph
-      min_dist = floyd_warshall(self.room_graph)
+      dist = room_graph
+      min_dist = floyd_warshall(room_graph)
 
       for i in range(len(dist)):
         for j in range(i + 1, len(dist)):
@@ -213,8 +212,8 @@ class Dungeon:
 
     mp = map_padding
     generate_map(mp, mp, map_width - mp, map_height - mp)
-    generate_graph()
-    connect_rooms()
+    room_graph = generate_graph()
+    connect_rooms(room_graph)
 
   def build_cellular_automata(self):
     mp = map_padding + 1
@@ -254,40 +253,8 @@ class Dungeon:
           for x in range(map_width):
             self.map_basic[y][x][0] = new_map[y][x]
 
-    """
-    def expand():
-      visited = set()
-
-      def BFS(x, y):
-        queue = deque([(x, y)])
-        visited.add((x, y))
-        dire = [(0, 1), (1, 0), (0, -1), (-1, 0)]
-
-        while queue:
-          x, y = queue.popleft()
-
-          for d in dire:
-            nx, ny = x + d[0], y + d[1]
-            if ny < 0 or ny >= map_height or nx < 0 or nx >= map_width:
-              continue
-            if ((nx, ny) not in visited
-                and self.map_basic[ny][nx][0] == tile.floor):
-              visited.add((nx, ny))
-              queue.append((nx, ny))
-            if self.map_basic[ny][nx][0] == tile.blank:
-              self.map_basic[ny][nx][0] = tile.floor
-              visited.add((nx, ny))
-
-      for y in range(map_height):
-        for x in range(map_width):
-          if self.map_basic[y][x][0] == tile.floor and (x, y) not in visited:
-            BFS(x, y)
-    """
-
     initialize()
     simulate()
-    # for _ in range(expand_iter):
-    #   expand()
 
   def build_plain(self):
     for y in range(map_height):
@@ -390,64 +357,157 @@ class Dungeon:
         if self.map_basic[y][x][0] == tile.blank and (x, y) not in visited:
           BFS(x, y)
 
-  def place_path(self):
-    W = map_width
+  def place_structure(self):
+
+    def update_prefix_sum():
+      for y in range(H):
+        for x in range(W):
+          n = 0 if self.map_basic[y][x][0] == tile.floor else 1
+          sum[y][x] = n + sum[y - 1][x] + sum[y][x - 1] - sum[y - 1][x - 1]
+
+    def get_area_sum(x1, y1, x2, y2):
+      return (sum[y2][x2] - sum[y1 - 1][x2] - sum[y2][x1 - 1] +
+              sum[y1 - 1][x1 - 1])
+
+    rects = [(2, 4), (5, 5), (7, 7), (3, 5), (5, 3)]
+    rects.sort(key=lambda x: x[0] * x[1], reverse=True)
     H = map_height
+    W = map_width
+    sum = [[0] * (W) for _ in range(H)]
+    update_prefix_sum()
 
-    def place_structure():
-      list = []
-    
-    def a_star_search(start, end):
+    def set_structure_position():
 
-      def heuristic(a, b):
-        r = random.uniform(-path_random_factor, path_random_factor)
-        return max(abs(b[0] - a[0]), abs(b[1] - a[1])) + r  # Octile Distance
+      def fill_map_area(x, y, w, h):
+        for dy in range(h):
+          for dx in range(w):
+            self.map_basic[y + dy][x + dx][0] = tile.house
 
-      dist = {(x, y): float('inf') for x in range(W) for y in range(H)}
-      dist[start] = 0
-      pq = [(0, start)]
-      visited = {(x, y): False for x in range(W) for y in range(H)}
-      prev = {(x, y): None for x in range(W) for y in range(H)}
-      dire = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+      strc_list = []
+      for rect in rects:
+        pos = []
+        for y in range(H - rect[1]):
+          for x in range(W - rect[0]):
+            if get_area_sum(x, y, x + rect[0], y + rect[1]) == 0:
+              pos.append((x, y))
+        if len(pos) > 0:
+          x, y = random.choice(pos)
+          fill_map_area(x, y, rect[0], rect[1])
+          strc_list.append(
+              RectArea(x, y, x + rect[0], y + rect[1], len(strc_list)))
+          update_prefix_sum()
+      return strc_list
 
-      while pq:
-        h_dist, (x, y) = heapq.heappop(pq)
-        if (x, y) == end:
-          break
+    def generate_structure_graph(strc_list):
+      import heapq
 
-        if visited[(x, y)]:
-          continue
-        visited[(x, y)] = True
+      def prim(start):
+        mst = []
+        visited = set()
+        min_heap = [(0, start, None)]
 
-        for dx, dy in dire:
-          nx, ny = x + dx, y + dy
-
-          if not (0 <= nx < W and 0 <= ny < H):
+        while min_heap:
+          dist, cur, prev = heapq.heappop(min_heap)
+          if cur in visited:
             continue
-          # if grid[ny][nx] == 1:
-          #   continue
+          visited.add(cur)
 
-          new_dist = dist[(x, y)] + 1
-          if new_dist < dist[(nx, ny)]:
-            dist[(nx, ny)] = new_dist
-            prev[(nx, ny)] = (x, y)
-            heapq.heappush(pq, (new_dist + heuristic((nx, ny), end), (nx, ny)))
+          if prev is not None:
+            mst.append((prev, cur, dist))
 
-      path = []
-      step = end
-      while step is not None:
-        path.append(step)
-        step = prev[step]
-      path.reverse()
+          for next in range(len(rects)):
+            new_dist = strc_graph[cur][next]
+            if next not in visited:
+              heapq.heappush(min_heap, (new_dist, next, cur))
 
-      return path
+        return mst
 
-    start = (3, 3)
-    end = (24, 24)
+      strc_graph = [[0 for _ in range(len(rects))] for _ in range(len(rects))]
+      for i in range(len(strc_list)):
+        for j in range(len(strc_list)):
+          if i != j:
+            dist = self.rect_distance(strc_list[i], strc_list[j])
+            strc_graph[j][i] = strc_graph[i][j] = dist
 
-    path = a_star_search(start, end)
-    for (x, y) in path:
-      self.map_basic[y][x][0] = tile.path
+      return prim(0)
+
+    def place_path(strc_list, mst):
+      W = map_width
+      H = map_height
+
+      def a_star_search(start, end):
+        if not (0 <= start[0] < W and 0 <= start[1] < H):
+          return
+        if not (0 <= end[0] < W and 0 <= end[1] < H):
+          return
+        if not (self.map_basic[start[1]][start[0]][0] == tile.floor
+                or self.map_basic[start[1]][start[0]][0] == tile.path):
+          return
+        if not (self.map_basic[end[1]][end[0]][0] == tile.floor
+                or self.map_basic[end[1]][end[0]][0] == tile.path):
+          return
+
+        def heuristic(a, b):
+          r = random.uniform(-path_random_factor, path_random_factor)
+          return max(abs(b[0] - a[0]), abs(b[1] - a[1])) + r  # Octile Distance
+
+        NONE_POS = (-1, -1)
+        dist = {(x, y): float('inf') for x in range(W) for y in range(H)}
+        dist[start] = 0
+        pq = [(0, start)]
+        visited = {(x, y): False for x in range(W) for y in range(H)}
+        prev = {(x, y): NONE_POS for x in range(W) for y in range(H)}
+        dire = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+        while pq:
+          h_dist, (x, y) = heapq.heappop(pq)
+          if (x, y) == end:
+            break
+
+          if visited[(x, y)]:
+            continue
+          visited[(x, y)] = True
+
+          for dx, dy in dire:
+            nx, ny = x + dx, y + dy
+
+            if not (0 <= nx < W and 0 <= ny < H):
+              continue
+            if not (self.map_basic[ny][nx][0] == tile.floor
+                    or self.map_basic[ny][nx][0] == tile.path):
+              continue
+
+            new_dist = dist[(x, y)] + 1
+            if new_dist < dist[(nx, ny)]:
+              dist[(nx, ny)] = new_dist
+              prev[(nx, ny)] = (x, y)
+              heapq.heappush(pq, (new_dist + heuristic(
+                  (nx, ny), end), (nx, ny)))
+
+        path = []
+        step = end
+        while step is not NONE_POS:
+          path.append(step)
+          step = prev[step]
+        path.reverse()
+
+        return path
+
+      def make_path(start, end):
+        path = a_star_search(start, end)
+        if path is not None:
+          for (x, y) in path:
+            self.map_basic[y][x][0] = tile.path
+
+      for node in mst:
+        A = strc_list[node[0]]
+        B = strc_list[node[1]]
+        make_path(((A.x1 + A.x2) // 2, A.y2 + 1),
+                  ((B.x1 + B.x2) // 2, B.y2 + 1))
+
+    strc_list = set_structure_position()
+    mst = generate_structure_graph(strc_list)
+    place_path(strc_list, mst)
 
   def place_area(self, area_tile, base_id, layer):
     (CAP_MIN, CAP_MAX) = (area_tile.capacity_min, area_tile.capacity_max)
