@@ -51,10 +51,10 @@ wall = TileCore.id_gen(1)
 ceil = TileCore.id_gen(0)
 floor_cover = []
 extra = [
-    # AreaTileSet(AreaTile(seed_rate=0.02, cap_min=3, cap_max=4, carpet=False))
+    AreaTileSet(AreaTile(seed_rate=0.002, cap_min=10, cap_max=15, carpet=False))
 ]
 path = TileCore.id_gen(0)
-house = TileCore.id_gen(0)
+floor_ev = [floor, ceil] + [TileCore.id_gen(0)] * 4
 
 
 # Normal Deco Tile Rule
@@ -70,24 +70,20 @@ AJW_UP = (1, 0, 0)
 
 gen_normal = {
     floor: [
-        Prob(60, 0.1, AJW_UP),
-        Prob(61, 0.1, AJW_UP),
-        Prob(62, 0.1, AJW_UP),
-        Prob(72, 0.1, AJW_UP),
-        Prob(73, 0.1, AJW_UP),
-        Prob(80, 0.25, (1, 0, 1)),
-        Prob(96, 0.1, AJW_UP),
-        Prob(97, 0.1, AJW_UP),
-        Prob(112, 0.1, AJW_UP),
-        Prob(113, 0.1, AJW_UP),
-        Prob(114, 0.1, AJW_UP),
+        Prob(88, 0.01),
+        Prob(89, 0.01),
+        Prob(90, 0.01),
+        Prob(91, 0.01),
+        Prob(92, 0.01),
+        Prob(96, 0.01),
+        Prob(97, 0.01),
+        Prob(98, 0.01),
+        Prob(99, 0.01),
+        Prob(100, 0.01),
     ],
     wall: [
-        Prob(32, 0.05),
-        Prob(33, 0.05),
-        Prob(120, 0.05),
-        Prob(121, 0.05),
-        Prob(122, 0.05),
+        Prob(195, 0.01),
+        Prob(203, 0.01),
     ],
 }
 
