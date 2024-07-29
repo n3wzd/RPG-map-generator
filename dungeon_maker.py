@@ -6,40 +6,6 @@ from collections import deque
 import parameter as param
 import tile_rule as tile
 
-# Map Basic
-map_width = param.map_width
-map_height = param.map_height
-map_padding = param.map_padding
-map_type = param.map_type
-MAX_LAYER = 6
-
-## Dungeon(BSP)
-room_min_size = param.room_min_size
-room_max_size = param.room_max_size
-room_min_padding = param.room_min_padding
-room_max_padding = param.room_max_padding
-corridor_wide_auto = param.corridor_wide_auto
-corridor_wide = param.corridor_wide
-wall_height = param.wall_height
-room_freq = param.room_freq
-
-## Cave(cellular_automata)
-wall_probability = param.wall_probability
-cellular_iterations = param.cellular_iterations
-birth_limit = param.birth_limit
-death_limit = param.death_limit
-area_threshold = param.area_threshold
-
-## Town(A*)
-path_random_factor = param.path_random_factor
-house_num = param.house_num
-house_margin = param.house_margin
-town_boundary_margin = param.town_boundary_margin
-
-## Field(perlin_noise)
-perlin_scale = param.perlin_scale
-elevation_level = param.elevation_level
-
 
 class RectArea:
 
@@ -54,25 +20,27 @@ class RectArea:
 class Dungeon:
 
   def __init__(self):
-    self.map = [[[0 for _ in range(MAX_LAYER)] for _ in range(map_width)]
-                for _ in range(map_height)]
-    self.bmap = [[[tile.blank, tile.transparent] for _ in range(map_width)]
-                 for _ in range(map_height)]
-    self.hmap = [[0 for _ in range(map_width)] for _ in range(map_height)]
+    self.map = [[[0 for _ in range(6)] for _ in range(param.map_width)]
+                for _ in range(param.map_height)]
+    self.bmap = [[[tile.blank, tile.transparent]
+                  for _ in range(param.map_width)]
+                 for _ in range(param.map_height)]
+    self.hmap = [[0 for _ in range(param.map_width)]
+                 for _ in range(param.map_height)]
     self.room_list = []  # only BSP
     self.generate_dungeon()
 
   def generate_dungeon(self):
-    if 0 <= map_type <= 1:
-      if map_type == 0:
+    if 0 <= param.map_type <= 1:
+      if param.map_type == 0:
         self.build_BSP()
-      if map_type == 1:
+      if param.map_type == 1:
         self.build_cellular_automata()
       self.place_wall()
       self.place_ceil()
-    if map_type == 2:
+    if param.map_type == 2:
       self.build_plain()
-    if map_type == 3:
+    if param.map_type == 3:
       self.build_perlin_noise()
     self.place_structure()
     self.place_area_all()
@@ -93,10 +61,12 @@ class Dungeon:
       return x_dist + y_dist + 1
 
   def build_BSP(self):
-    space_min_width = room_min_size + room_max_padding * 2 + 1
-    space_max_width = room_max_size + room_max_padding * 2 + 1
-    space_min_height = room_min_size + room_max_padding * 2 + wall_height + 1
-    space_max_height = room_max_size + room_max_padding * 2 + wall_height + 1
+    space_min_width = param.room_min_size + param.room_padding * 2 + 1
+    space_max_width = param.room_max_size + param.room_padding * 2 + 1
+    space_min_height = (param.room_min_size + param.room_padding * 2 +
+                        param.wall_height + 1)
+    space_max_height = (param.room_max_size + param.room_padding * 2 +
+                        param.wall_height + 1)
 
     def generate_map(x1, y1, x2, y2):
 
@@ -127,7 +97,7 @@ class Dungeon:
 
       if (space_width <= space_max_width and space_height <= space_max_height
           and random.random() < define_separator_per(x1, y1, x2, y2)
-          and random.random() < room_freq):
+          and random.random() < param.room_freq):
         generate_room(x1, y1, x2, y2)
         return
 
@@ -157,10 +127,10 @@ class Dungeon:
       return room_graph
 
     def generate_room(x1, y1, x2, y2):
-      padding = random.randint(room_min_padding, room_max_padding) + 1
+      padding = param.room_padding + 1
       x1 += padding
       x2 -= padding
-      y1 += padding + wall_height
+      y1 += padding + param.wall_height
       y2 -= padding
 
       room = RectArea(x1, y1, x2, y2, len(self.room_list))
@@ -186,7 +156,7 @@ class Dungeon:
         r1, r2 = self.room_list[i], self.room_list[j]
         dire = random.randint(0, 1)
 
-        if corridor_wide_auto:
+        if param.corridor_wide_auto:
           for x in range(min(r1.x1, r2.x1), max(r1.x2, r2.x2) + 1):
             ry = (r1.y1, r1.y2) if dire == 0 else (r2.y1, r2.y2)
             for y in range(ry[0], ry[1] + 1):
@@ -196,7 +166,7 @@ class Dungeon:
             for x in range(rx[0], rx[1] + 1):
               self.bmap[y][x][0] = tile.floor
         else:
-          cw = corridor_wide
+          cw = param.corridor_wide
           cx1 = random.randrange(r1.x1 + cw, r1.x2 - cw)
           cy1 = random.randrange(r1.y1 + cw, r1.y2 - cw)
           cx2 = random.randrange(r2.x1 + cw, r2.x2 - cw)
@@ -219,19 +189,19 @@ class Dungeon:
           if dist[i][j] == min_dist[i][j]:
             make_corridor(i, j)
 
-    mp = map_padding
-    generate_map(mp, mp, map_width - mp, map_height - mp)
+    mp = param.map_padding
+    generate_map(mp, mp, param.map_width - mp, param.map_height - mp)
     room_graph = generate_graph()
     connect_rooms(room_graph)
 
   def build_cellular_automata(self):
-    mp = map_padding + 1
+    mp = param.map_padding + 1
 
     def initialize():
-      for y in range(mp, map_height - mp):
-        for x in range(mp, map_height - mp):
+      for y in range(mp, param.map_height - mp - param.wall_height):
+        for x in range(mp, param.map_height - mp):
           self.bmap[y][x][0] = (tile.blank if random.random()
-                                < wall_probability else tile.floor)
+                                < param.wall_probability else tile.floor)
 
     def count_wall(x, y):
       cnt = 0
@@ -240,83 +210,39 @@ class Dungeon:
           if dx == 0 and dy == 0:
             continue
           nx, ny = x + dx, y + dy
-          if 0 <= nx < map_width and 0 <= ny < map_height:
+          if 0 <= nx < param.map_width and 0 <= ny < param.map_height:
             cnt += 1 if self.bmap[ny][nx][0] == tile.blank else 0
           else:
             cnt += 1
       return cnt
 
     def simulate():
-      for _ in range(cellular_iterations):
-        new_map = [[tile.blank for _ in range(map_width)]
-                   for _ in range(map_height)]
-        for y in range(mp, map_height - mp):
-          for x in range(mp, map_height - mp):
+      for _ in range(param.cellular_iterations):
+        new_map = [[tile.blank for _ in range(param.map_width)]
+                   for _ in range(param.map_height)]
+        for y in range(mp, param.map_height - mp):
+          for x in range(mp, param.map_height - mp):
             cnt = count_wall(x, y)
             if self.bmap[y][x][0] == tile.blank:
-              new_map[y][x] = tile.blank if cnt >= birth_limit else tile.floor
+              new_map[y][
+                  x] = tile.blank if cnt >= param.birth_limit else tile.floor
             else:
-              new_map[y][x] = tile.blank if cnt > death_limit else tile.floor
+              new_map[y][
+                  x] = tile.blank if cnt > param.death_limit else tile.floor
 
-        for y in range(map_height):
-          for x in range(map_width):
+        for y in range(param.map_height):
+          for x in range(param.map_width):
             self.bmap[y][x][0] = new_map[y][x]
 
     initialize()
     simulate()
 
   def build_plain(self):
-    for y in range(map_height):
-      for x in range(map_width):
+    for y in range(param.map_height):
+      for x in range(param.map_width):
         self.bmap[y][x][0] = tile.floor
 
   def build_perlin_noise(self):
-    """
-    def fade(t):
-      return t * t * t * (t * (t * 6 - 15) + 10)
-
-    def lerp(t, a, b):
-      return a + t * (b - a)
-
-    def gradient(hash, x, y):
-      h = hash & 3
-      u = x if h < 2 else y
-      v = y if h < 2 else x
-      return (u if (h & 1) == 0 else -u) + (v if (h & 2) == 0 else -v)
-
-    p = list(range(256))
-    random.shuffle(p)
-    p = p * 2
-
-    def perlin(x, y):
-      X, Y = math.floor(x) & 255, math.floor(y) & 255
-      x -= math.floor(x)
-      y -= math.floor(y)
-      u, v = fade(x), fade(y)
-
-      n00 = gradient(p[p[X] + Y], x, y)
-      n01 = gradient(p[p[X] + Y + 1], x, y - 1)
-      n10 = gradient(p[p[X + 1] + Y], x - 1, y)
-      n11 = gradient(p[p[X + 1] + Y + 1], x - 1, y - 1)
-
-      nx0 = lerp(u, n00, n10)
-      nx1 = lerp(u, n01, n11)
-      nxy = lerp(v, nx0, nx1)
-
-      return nxy
-
-    def generate_perlin_noise(width, height, scale=10):
-      noise = [[0 for _ in range(width)] for _ in range(height)]
-      for y in range(height):
-        for x in range(width):
-          nx = x / scale
-          ny = y / scale
-          noise[y][x] = perlin(nx, ny)
-      return noise
-
-    noise = generate_perlin_noise(map_width, map_height, perlin_scale)
-    """
-
     p = list(range(256))
     random.shuffle(p)
     p = p * 2
@@ -387,30 +313,30 @@ class Dungeon:
       return 70.0 * (n0 + n1 + n2)
 
     noise = [[
-        simplex((x + 2) / perlin_scale, (y + 2) / perlin_scale)
-        for x in range(map_width)
-    ] for y in range(map_height)]
+        simplex((x + 2) / param.perlin_scale, (y + 2) / param.perlin_scale)
+        for x in range(param.map_width)
+    ] for y in range(param.map_height)]
 
-    for y in range(map_height):
-      for x in range(map_width):
-        ev = int((noise[y][x] + 1) / 2 * (elevation_level + 2))
+    for y in range(param.map_height):
+      for x in range(param.map_width):
+        ev = int((noise[y][x] + 1) / 2 * (param.elevation_level + 2))
         self.bmap[y][x][0] = tile.floor_ev[ev]
         self.hmap[y][x] = ev * 2
 
-    for y in range(map_height - 1, wall_height, -1):
-      for x in range(map_width):
-        if self.bmap[y - wall_height - 1][x][0] == self.bmap[y][x][0]:
-          for dy in range(wall_height):
+    for y in range(param.map_height - 1, param.wall_height, -1):
+      for x in range(param.map_width):
+        if self.bmap[y - param.wall_height - 1][x][0] == self.bmap[y][x][0]:
+          for dy in range(param.wall_height):
             self.bmap[y - dy - 1][x][0] = self.bmap[y][x][0]
             self.hmap[y - dy - 1][x] = self.hmap[y][x]
 
-    for y in range(map_height - 1):
-      for x in range(map_width):
+    for y in range(param.map_height - 1):
+      for x in range(param.map_width):
         if (self.bmap[y][x][0] > self.bmap[y + 1][x][0]):
           self.make_wall(x, y)
 
   def make_wall(self, x, y):
-    for dy in range(wall_height):
+    for dy in range(param.wall_height):
       ny = y - dy
       if ny >= 0:
         self.bmap[ny][x][0] = tile.wall
@@ -421,11 +347,11 @@ class Dungeon:
     def delete_wallcovered_floor():
 
       def fill_blank(x, y):
-        for dy in range(wall_height + 1):
+        for dy in range(param.wall_height + 1):
           self.bmap[y - dy - 1][x][0] = tile.blank
 
-      for y in range(map_height - 1, wall_height, -1):
-        for x in range(map_width):
+      for y in range(param.map_height - 1, param.wall_height, -1):
+        for x in range(param.map_width):
           if (self.bmap[y - 1][x][0] == tile.blank
               and self.bmap[y][x][0] == tile.floor):
             fill_blank(x, y)
@@ -446,7 +372,7 @@ class Dungeon:
 
           for d in dire:
             nx, ny = x + d[0], y + d[1]
-            if ny < 0 or ny >= map_height or nx < 0 or nx >= map_width:
+            if ny < 0 or ny >= param.map_height or nx < 0 or nx >= param.map_width:
               continue
             if ((nx, ny) not in visited
                 and self.bmap[ny][nx][0] == tile.floor):
@@ -455,20 +381,20 @@ class Dungeon:
               queue.append((nx, ny))
               cnt += 1
 
-        if cnt <= area_threshold:
+        if cnt <= param.area_threshold:
           for v in catched:
             self.bmap[v[1]][v[0]][0] = tile.blank
 
-      for y in range(map_height):
-        for x in range(map_width):
+      for y in range(param.map_height):
+        for x in range(param.map_width):
           if self.bmap[y][x][0] == tile.floor and (x, y) not in visited:
             BFS(x, y)
 
     delete_wallcovered_floor()
-    if map_type == 1:
+    if param.map_type == 1:
       fill_hole()
-    for y in range(map_height - 1):
-      for x in range(map_width):
+    for y in range(param.map_height - 1):
+      for x in range(param.map_width):
         if (self.bmap[y][x][0] == tile.blank
             and self.bmap[y + 1][x][0] == tile.floor):
           self.make_wall(x, y)
@@ -488,7 +414,7 @@ class Dungeon:
 
         for d in dire:
           nx, ny = x + d[0], y + d[1]
-          if ny < 0 or ny >= map_height or nx < 0 or nx >= map_width:
+          if ny < 0 or ny >= param.map_height or nx < 0 or nx >= param.map_width:
             continue
 
           nv = self.bmap[ny][nx][0]
@@ -502,8 +428,8 @@ class Dungeon:
           self.bmap[y][x][0] = tile.ceil
           self.hmap[y][x] = 2
 
-    for y in range(map_height):
-      for x in range(map_width):
+    for y in range(param.map_height):
+      for x in range(param.map_width):
         if self.bmap[y][x][0] == tile.blank and (x, y) not in visited:
           BFS(x, y)
 
@@ -543,8 +469,8 @@ class Dungeon:
     rects = []
     create_rect_list()
 
-    H = map_height
-    W = map_width
+    H = param.map_height
+    W = param.map_width
     cmap = [[0] * (W) for _ in range(H)]
     cmap_sum = [[0] * (W) for _ in range(H)]
     create_collide_map()
@@ -610,8 +536,8 @@ class Dungeon:
       return prim(0)
 
     def place_path(strc_list, mst):
-      W = map_width
-      H = map_height
+      W = param.map_width
+      H = param.map_height
 
       def a_star_search(start, end):
         if not (0 <= start[0] < W and 0 <= start[1] < H):
@@ -624,7 +550,8 @@ class Dungeon:
           return
 
         def heuristic(a, b):
-          r = random.uniform(-path_random_factor, path_random_factor)
+          r = random.uniform(-param.path_random_factor,
+                             param.path_random_factor)
           return max(abs(b[0] - a[0]), abs(b[1] - a[1])) + r  # Octile Distance
 
         def check_corner_pathtile(x, y):
@@ -732,15 +659,15 @@ class Dungeon:
         self.base = base_tile
 
     def check_base_id(x, y):
-      if map_type != 3 or base_id != tile.floor:
+      if param.map_type != 3 or base_id != tile.floor:
         return self.bmap[y][x][0] == base_id
       else:
         return self.bmap[y][x][0] in tile.floor_ev
 
     def create_seed():
       seed_list = []
-      for y in range(map_height):
-        for x in range(map_width):
+      for y in range(param.map_height):
+        for x in range(param.map_width):
           if (check_base_id(x, y)
               and random.random() < area_tile.seed_gen_rate):
             seed_list.append(
@@ -760,7 +687,7 @@ class Dungeon:
           flag = True
           for i in range(4):
             (x, y) = v[0] + dire[i][0], v[1] + dire[i][1]
-            if 0 <= x < map_width and 0 <= y < map_height:
+            if 0 <= x < param.map_width and 0 <= y < param.map_height:
               flag = flag and self.bmap[y][x][0] != seed.base
 
           if flag:
@@ -768,7 +695,7 @@ class Dungeon:
           else:
             for i in range(4):
               (x, y) = v[0] + dire[i][0], v[1] + dire[i][1]
-              if not (0 <= x < map_width and 0 <= y < map_height):
+              if not (0 <= x < param.map_width and 0 <= y < param.map_height):
                 continue
               if (self.bmap[y][x][0] == seed.base
                   and random.random() < seed.prob[i]):
@@ -779,14 +706,14 @@ class Dungeon:
     def trim():
 
       def clean_out(x, y):
-        if not (0 <= x < map_width and 0 <= y < map_height):
+        if not (0 <= x < param.map_width and 0 <= y < param.map_height):
           return
 
         if self.bmap[y][x][layer] == target:
           flag = 0
           for d in dire:
             nx, ny = x + d[0], y + d[1]
-            if 0 <= nx < map_width and 0 <= ny < map_height:
+            if 0 <= nx < param.map_width and 0 <= ny < param.map_height:
               flag += 1 if self.bmap[ny][nx][layer] != target else 0
           if flag >= 3:
             if layer == 0:
@@ -801,24 +728,24 @@ class Dungeon:
           flag = True
           for d in dire:
             (nx, ny) = x + d[0], y + d[1]
-            if 0 <= nx < map_width and 0 <= ny < map_height:
+            if 0 <= nx < param.map_width and 0 <= ny < param.map_height:
               flag = flag and self.bmap[ny][nx][layer] == target
 
           if flag:
             self.bmap[y][x][layer] = target
 
-      for y in range(map_height):
-        for x in range(map_width):
+      for y in range(param.map_height):
+        for x in range(param.map_width):
           clean_out(x, y)
 
-      for y in range(map_height):
-        for x in range(map_width):
+      for y in range(param.map_height):
+        for x in range(param.map_width):
           fill(x, y)
 
     def place_carpet():
 
       def create_square(x1, y1, x2, y2):
-        if x1 < 0 or y1 < 0 or x2 >= map_width or y2 >= map_height:
+        if x1 < 0 or y1 < 0 or x2 >= param.map_width or y2 >= param.map_height:
           return
 
         ok = True
@@ -887,28 +814,28 @@ class Dungeon:
         self.bmap[y][x][0] = cascade_id
         y -= 1
 
-    pd = map_padding
+    pd = param.map_padding
     base_id = area_tile_set.base.id
     cascade_id = area_tile_set.cascade.id
     gen_rate = area_tile_set.cascade.seed_gen_rate
     wide_min = area_tile_set.cascade.wide_min
     wide_max = area_tile_set.cascade.wide_max
 
-    for y in range(pd, map_height - pd):
-      for x in range(pd, map_width - pd):
+    for y in range(pd, param.map_height - pd):
+      for x in range(pd, param.map_width - pd):
         if (self.bmap[y][x][0] == base_id and y > 0
             and random.random() < gen_rate):
           wide = random.randint(wide_min, wide_max)
           flag = True
           for w in range(wide):
-            if x + w < map_width:
+            if x + w < param.map_width:
               flag = (flag and self.bmap[y - 1][x + w][0] == tile.wall
                       and self.bmap[y][x + w][0] == base_id)
             else:
               flag = False
           flag = (flag
                   and (x - 1 == 0 or self.bmap[y - 1][x - 1][0] == tile.wall))
-          flag = (flag and (x + wide == map_width
+          flag = (flag and (x + wide == param.map_width
                             or self.bmap[y - 1][x + wide][0] == tile.wall))
           if flag:
             for w in range(wide):
@@ -927,7 +854,7 @@ class Dungeon:
         for dx in range(3):
           nx, ny = x + dx - 1, y + dy - 1
           cond = True
-          if 0 <= nx < map_width and 0 <= ny < map_height:
+          if 0 <= nx < param.map_width and 0 <= ny < param.map_height:
             cond = (self.bmap[y][x][r] == self.bmap[ny][nx][r]
                     and self.hmap[ny][nx] == self.hmap[y][x])
             if dy == 0:
@@ -959,8 +886,8 @@ class Dungeon:
 
       def wallseed_y(tx, ty, target):
         seedy = 1
-        while self.bmap[ty +
-                        seedy][tx][r] == target and ty + seedy < map_height:
+        while self.bmap[
+            ty + seedy][tx][r] == target and ty + seedy < param.map_height:
           seedy += 1
         return ty + seedy
 
@@ -969,7 +896,7 @@ class Dungeon:
       for i in range(4):
         nx, ny = x + dire[i][0], y + dire[i][1]
         cond = True
-        if 0 <= nx < map_width and 0 <= ny < map_height:
+        if 0 <= nx < param.map_width and 0 <= ny < param.map_height:
           if (self.bmap[ny][nx][r] == tile.wall
               or self.bmap[ny][nx][r] in tile.TileCore.type_cascade):
             nwy = wallseed_y(nx, ny, self.bmap[ny][nx][r])
@@ -996,7 +923,7 @@ class Dungeon:
       for i in range(2):
         nx = x + dire[i]
         cond = True
-        if 0 <= nx < map_width:
+        if 0 <= nx < param.map_width:
           cond = self.bmap[y][x][r] == self.bmap[y][nx][r]
         dmap[i] = 1 if cond else 0
 
@@ -1010,8 +937,8 @@ class Dungeon:
 
       return 0
 
-    for y in range(map_height):
-      for x in range(map_width):
+    for y in range(param.map_height):
+      for x in range(param.map_width):
         for r in range(2):
           target = self.bmap[y][x][r]
           self.map[y][x][r] = param.theme[target]
@@ -1028,9 +955,9 @@ class Dungeon:
       flag = True
       if cond.adj_wall[0] and y > 0:
         flag = flag and self.bmap[y - 1][x][0] == tile.wall
-      if cond.adj_wall[1] and y < map_height - 1:
+      if cond.adj_wall[1] and y < param.map_height - 1:
         flag = flag and self.bmap[y + 1][x][0] == tile.ceil
-      if cond.adj_wall[2] and 0 < x < map_width - 1:
+      if cond.adj_wall[2] and 0 < x < param.map_width - 1:
         flag = flag and (self.bmap[y][x + 1][0] == tile.ceil
                          or self.bmap[y][x - 1][0] == tile.ceil)
       return flag
@@ -1038,7 +965,7 @@ class Dungeon:
     def gen_deco_tiles(x, y):
       tiles = []
       tile_basic = self.bmap[y][x][0]
-      if map_type == 3 and tile_basic in tile.floor_ev:
+      if param.map_type == 3 and tile_basic in tile.floor_ev:
         tile_basic = tile.floor
       for cond in tile.gen_normal.get(tile_basic, []):
         if (self.map[y][x][tile.layer_data[cond.target]] == tile.transparent
@@ -1051,13 +978,13 @@ class Dungeon:
       ok = True
       for member in group:
         nx, ny = (x + member.dx, y + member.dy)
-        if 0 <= nx < map_width and 0 <= ny < map_height:
+        if 0 <= nx < param.map_width and 0 <= ny < param.map_height:
           ok = ok and self.map[ny][nx][tile.layer_data[
               member.target]] == tile.transparent
           if member.base_id != -2:
             tile_basic = (self.bmap[y][x][0]
                           if member.base_id == -1 else member.base_id)
-            if map_type == 3 and tile_basic in tile.floor_ev:
+            if param.map_type == 3 and tile_basic in tile.floor_ev:
               tile_basic = self.bmap[ny][nx][0]
             ok = ok and self.bmap[ny][nx][0] == tile_basic
         else:
@@ -1069,31 +996,21 @@ class Dungeon:
           nx, ny = (x + member.dx, y + member.dy)
           self.map[ny][nx][tile.layer_data[member.target]] = member.target
 
-    for y in range(map_height):
-      for x in range(map_width):
+    for y in range(param.map_height):
+      for x in range(param.map_width):
         list = gen_deco_tiles(x, y)
         if len(list) > 0:
           list.sort(key=lambda cond: cond.prob, reverse=True)
           place_deco(x, y, list[0].target)
 
   def place_shadows(self):
-    for y in range(map_height):
-      for x in range(map_width - 1):
+    for y in range(param.map_height):
+      for x in range(param.map_width - 1):
         cond1 = self.hmap[y - 1][x] > self.hmap[y][x + 1] if y > 0 else True
         cond2 = self.bmap[y][x + 1][0] in tile.TileCore.type_floor
         cond3 = self.hmap[y][x] > self.hmap[y][x + 1]
         if cond1 and cond2 and cond3:
           self.map[y][x + 1][4] = 5
-
-  def print_2d_array_pretty(self):
-    new_map = [[tile.blank for _ in range(map_width)]
-               for _ in range(map_height)]
-    for y in range(map_height):
-      for x in range(map_width):
-        new_map[y][x] = self.bmap[y][x][0]
-
-    for row in new_map:
-      print(" ".join(map(str, row)))
 
 
 def main():

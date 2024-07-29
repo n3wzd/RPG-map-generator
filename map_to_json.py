@@ -49,10 +49,10 @@ def create_data(map, width, height):
     return data
 
 
-def main(map, tileset_id, map_id):
+def main(map, tileset_id, map_id, output_path):
     (width, height) = (len(map[0]), len(map))
     data = create_data(map, width, height)
     map_json = create_json(width, height, tileset_id, data)
 
-    with open(f'output/Map{map_id:03}.json', 'w') as file:
+    with open(f'{output_path}Map{map_id:03}.json', 'w') as file:
         json.dump(map_json, file, separators=(',', ':'))

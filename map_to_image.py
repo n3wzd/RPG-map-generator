@@ -6,7 +6,7 @@ tsz = param.TILE_PX_SIZE
 shadow_img = Image.new('RGBA', (24, 24), (0, 0, 0, 127))
 
 
-def main(map, tileset, map_id):
+def main(map, tileset, map_id, output_path):
   map_width, map_height = len(map[0]), len(map)
   map_img = Image.new('RGBA', (map_width * tsz, map_height * tsz),
                       (0, 0, 0, 0))
@@ -27,4 +27,6 @@ def main(map, tileset, map_id):
           if img is not None:
             map_img.paste(img, (x * tsz, y * tsz), img)
 
-  map_img.save(f'output/Map{map_id:03}.png')
+  filename = f'{output_path}Map{map_id:03}.png'
+  map_img.save(filename)
+  return filename

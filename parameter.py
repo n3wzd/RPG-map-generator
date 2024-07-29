@@ -5,36 +5,35 @@ tileset_id = 1
 map_id = 18
 
 # Map Basic
-map_width = 64
-map_height = 64
-map_padding = 4
+map_width = 64  # min = 10, max = 300
+map_height = 64  # min = 10, max = 300
+map_padding = 4  # min = 1, max = 9
 map_type = 3  # 0: BSP, 1: cellular_automata, 2: plain, 3: perlin_noise
-wall_height = 4
+wall_height = 4  # min = 0, max = 9
 
 ## Dungeon(BSP)
-room_min_size = 4  # only floor
-room_max_size = 20  # only floor
-room_min_padding = 1
-room_max_padding = 2
+room_min_size = 4  # min = 4, max = min(w, h) - pd, only floor
+room_max_size = 20
+room_padding = 1  # min = 0, max = rmsz // 2
 corridor_wide_auto = False
-corridor_wide = 1
-room_freq = 0.75
+corridor_wide = 1  # min = 1, max = (rmsz - wh) // 2
+room_freq = 0.75  # min = 0.0, max = 1.0
 
 ## Cave(cellular_automata)
-wall_probability = 0.50
-cellular_iterations = 4
+wall_probability = 0.50  # min = 0.4, max = 0.6
+cellular_iterations = 4  # min = 1, max = 10
 birth_limit = 4
 death_limit = 4
 area_threshold = 20
 
 ## Town(A*, MST)
-path_random_factor = 3
-house_num = 0
-house_margin = (1, 1, 1, 0)  # (left, right, up, bottom)
-town_boundary_margin = 3
+path_random_factor = 3  # min = 0, max = 5
+house_num = 0  # min = 0, max = 15
+house_margin = (1, 1, 1, 0)  # (left, right, up, bottom), min = 0, max = 9
+town_boundary_margin = 3  # min = 0, max = 9
 
 ## Field(perlin_noise)
-perlin_scale = 50
+perlin_scale = 100  # min = 50, max = 200
 elevation_level = 1  # min = 0, max = 3
 
 # Theme

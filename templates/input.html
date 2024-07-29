@@ -1,0 +1,25 @@
+{% macro field(id, label, min, max, value) %}
+<div class="input-container">
+    <label for="{{ id }}">{{ label }}</label>
+    <input type="number" id="{{ id }}" name="{{ id }}" min="{{ min }}" max="{{ max }}" value="{{ value }}" oninput="updateInput('{{ id }}')" required >
+</div>
+{% endmacro %}
+
+{% macro slider(id, label, min, max, value) %}
+<div class="slider-container">
+    <label for="{{ id }}">{{ label }}</label>
+    <input type="range" id="{{ id }}" name="{{ id }}" min="{{ min }}" max="{{ max }}" value="{{ value }}" oninput="updateInput('{{ id }}')">
+    <span id="{{ id }}_value">{{ value }}</span>
+</div>
+{% endmacro %}
+
+{% macro range(id1, id2, label1, label2, min, max, value1, value2) %}
+<div class="range-container">
+    <label for="{{ id1 }}">{{ label1 }}</label>
+    <input type="range" id="{{ id1 }}" name="{{ id1 }}" min="{{ min }}" max="{{ max }}" value="{{ value1 }}" oninput="updateRangeInput('{{ id1 }}', '{{ id2 }}', 1)">
+    <span id="{{ id1 }}_value">{{ value1 }}</span>
+    <label for="{{ id2 }}">{{ label2 }}</label>
+    <input type="range" id="{{ id2 }}" name="{{ id2 }}" min="{{ min }}" max="{{ max }}" value="{{ value2 }}" oninput="updateRangeInput('{{ id1 }}', '{{ id2 }}', 2)">
+    <span id="{{ id2 }}_value">{{ value2 }}</span>
+</div>
+{% endmacro %}
