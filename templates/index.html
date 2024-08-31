@@ -23,11 +23,11 @@
             </div>
             {{ input.field('map_width', 'Map Width', '10', '300', '48') }}
             {{ input.field('map_height', 'Map Height', '10', '300', '48') }}
-            {{ input.slider('map_padding', 'Map Padding', '0', '9', '4') }}
-            {{ input.slider('wall_height', 'Wall Height', '1', '9', '2') }}
+            {{ input.slider('map_padding', 'Map Padding', '0', '9', '4', true) }}
+            {{ input.slider('wall_height', 'Wall Height', '1', '9', '2', true) }}
 
-            {{ input.range('room_min_size', 'room_max_size', 'Room Min Size', 'Room Max Size', '4', '20', '4', '20') }}
-            {{ input.slider('corridor_wide', 'Corridor Wide', '1', '3', '2') }}
+            {{ input.range('room_min_size', 'room_max_size', 'Room Min Size', 'Room Max Size', '0', '100', '25', '50') }}
+            {{ input.slider('corridor_wide', 'Corridor Wide', '0', '100', '50', false) }}
             <button id="submit_button" type="submit">Generate</button>
         </form>
     </div>
@@ -44,6 +44,9 @@
         }
         function getElementValue(id) {
             return getElement(id).value
+        }
+        function mappedValue(v, a, b) {
+            return Math.floor(a + (v / 100) * (b - a));
         }
         
         getElement('parameter-form').addEventListener('submit', function(event) {
@@ -66,6 +69,14 @@
             const map_padding = getElementValue('map_padding');
             const wall_height = getElementValue('wall_height');
 
+            let room_min_size = getElementValue('room_min_size');
+            let room_max_size = getElementValue('room_max_size');
+            let corridor_wide = getElementValue('corridor_wide');
+
+            room_min_size = mappedValue(room_min_size, 4, Math.min(map_width, map_height) - map_padding);
+            room_max_size = mappedValue(room_max_size, 4, Math.min(map_width, map_height) - map_padding);
+            corridor_wide = mappedValue(corridor_wide, 1, (room_min_size - wall_height) / 2);
+
             fetch('/submit', {
                 method: 'POST',
                 headers: {
@@ -77,6 +88,9 @@
                     'map_padding': map_padding,
                     'map_type': map_type,
                     'wall_height': wall_height,
+                    'room_min_size': room_min_size,
+                    'room_max_size': room_max_size,
+                    'corridor_wide': corridor_wide,
                 })
             })
             .then(response => response.json())
@@ -93,40 +107,26 @@
             .catch(error => console.error('Error:', error));
         });
         
-        function updateInput(paramId) {
+        function updateInputLabel(paramId) {
             const paramValue = getElement(paramId).value;
             document.getElementById(paramId + '_value').textContent = paramValue;
-
-            if(paramId === "map_width" || paramId === "map_height" || paramId === "map_padding") {
-                getElement("room_min_size").max = Math.min(getElementValue(), 
-                        getElementValue("map_height")) - 
-                        getElementValue("map_padding");
-                getElement("room_max_size").max = Math.min(getElementValue(), 
-                        getElementValue("map_height")) - 
-                        getElementValue("map_padding");
-            }
-            if(paramId === "room_min_size" || paramId === "wall_height") {
-                getElement("corridor_wide").max = 
-                    Math.floor((getElementValue("room_min_size") - getElementValue("wall_height")) / 2);
-            }
         }
         
-        function updateRangeInput(paramId1, paramId2, caller) {
-            const minValue = parseInt(getElementValue(paramId1));
-            const maxValue = parseInt(getElementValue(paramId2));
+        function updateRangeMinInput(minId, maxId) {
+            const minValue = parseInt(getElementValue(minId));
+            const maxValue = parseInt(getElementValue(maxId));
             if(minValue > maxValue) {
-                if(caller === 1) {
-                    getElement(paramId2).value = minValue;
-                } else {
-                    getElement(paramId1).value = maxValue;
-                }
+                getElement(maxId).value = minValue;
             }
-            updateInput(paramId1);
-            updateInput(paramId2);
         }
 
-        updateInput("room_max_size")
-        updateInput("corridor_wide")
+        function updateRangeMaxInput(minId, maxId) {
+            const minValue = parseInt(getElementValue(minId));
+            const maxValue = parseInt(getElementValue(maxId));
+            if (minValue > maxValue) {
+                getElement(minId).value = maxValue;
+            }
+        }
     </script>
 </body>
 </html>
