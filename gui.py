@@ -45,11 +45,11 @@ class ParameterApp:
         self.map_padding = self.create_slider(sidebar, "Map Padding", 0, 9, 4)
         self.wall_height = self.create_slider(sidebar, "Wall Height", 1, 9, 2)
 
-        # self.create_range_field(sidebar, "Room Min Size", 0, 100, 25)
+        self.room_min_size, self.room_max_size = self.create_range_slider(sidebar, "Room Min Size", "Room Max Size", 0, 100, 25, 50, False)
         self.room_padding = self.create_slider(sidebar, "Room Padding", 0, 100, 0, False)
         self.corridor_wide_auto = self.create_switch(sidebar, "Auto Corridor Wide", False)
         self.corridor_wide = self.create_slider(sidebar, "Corridor Wide", 0, 100, 50, False)
-        self.room_padding = self.create_slider(sidebar, "Room Frequency", 0, 100, 50, False)
+        self.room_freq = self.create_slider(sidebar, "Room Frequency", 0, 100, 50, False)
 
         tk.Button(sidebar, text="Generate", command=self.on_submit).pack(pady=(10, 0))
 
@@ -87,6 +87,23 @@ class ParameterApp:
         slider.pack()
         return slider
 
+    def create_range_slider(self, parent, label1, label2, min_val, max_val, default_val1, default_val2, showvalue=True):
+        def on_min_scale_change(value):
+            v1, v2 = (int(slider1.get()), int(slider2.get()))
+            if v1 > v2:
+                slider2.set(v1)
+                
+        def on_max_scale_change(value):
+            v1, v2 = (int(slider1.get()), int(slider2.get()))
+            if v1 > v2:
+                slider1.set(v2)
+            
+        slider1 = self.create_slider(parent, label1, min_val, max_val, default_val1, showvalue)
+        slider2 = self.create_slider(parent, label2, min_val, max_val, default_val2, showvalue)
+        slider1.config(command=on_min_scale_change)
+        slider2.config(command=on_max_scale_change)
+        return (slider1, slider2)
+
     def create_switch(self, parent, label, default_val):
         frame = tk.Frame(parent)
         frame.pack(pady=(15, 0))
@@ -109,10 +126,10 @@ class ParameterApp:
     def on_submit(self):
         def setParam(key, value):
             if hasattr(param, key):
-                setattr(param, key, int(value))
+                setattr(param, key, value)
                 
         def mappedValue(v, a, b):
-            return int(a + (v / 100) * (b - a));
+            return int(int(a) + (float(v) / 100) * (int(b) - int(a)));
         
         if(not validate_range(self.map_width.get(), 10, 300)):
             return
@@ -125,15 +142,16 @@ class ParameterApp:
         setParam('map_type', map_type_map[self.map_type.get()])
         setParam('map_width', int(self.map_width.get()))
         setParam('map_height', int(self.map_height.get()))
-        setParam('map_padding', self.map_padding.get())
-        setParam('wall_height', self.wall_height.get())
+        setParam('map_padding', int(self.map_padding.get()))
+        setParam('wall_height', int(self.wall_height.get()))
         
-        # setParam('room_min_size', mappedValue(self.room_min_size.get(), 4, min(self.map_width.get(), self.map_height.get()) - self.map_padding.get()))
-        # setParam('room_max_size', mappedValue(self.room_max_size.get(), 4, min(self.map_width.get(), self.map_height.get()) - self.map_padding.get()))
-        setParam('room_padding', mappedValue(self.room_padding.get(), 0, self.room_min_size.get() // 2))
+        room_size_limit = min(int(self.map_width.get()), int(self.map_height.get())) - int(self.map_padding.get())
+        setParam('room_min_size', mappedValue(self.room_min_size.get(), 4, room_size_limit))
+        setParam('room_max_size', mappedValue(self.room_max_size.get(), 4, room_size_limit))
+        setParam('room_padding', mappedValue(self.room_padding.get(), 0, int(self.room_min_size.get()) // 2))
         setParam('corridor_wide_auto', self.corridor_wide_auto.get())
-        setParam('corridor_wide', mappedValue(self.corridor_wide.get(), 1, (self.room_min_size.get() - self.wall_height.get()) // 2))
-        setParam('room_freq', self.room_freq.get())
+        setParam('corridor_wide', mappedValue(self.corridor_wide.get(), 1, (int(self.room_min_size.get()) - int(self.wall_height.get())) // 2))
+        setParam('room_freq', float(self.room_freq.get()) / 100)
 
         tileset = tile_crop.main()
         dungeon = dungeon_maker.main()
