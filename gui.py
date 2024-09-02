@@ -10,6 +10,7 @@ import tile_crop
 
 map_type_dispaly = ["Dungeon", "Cave", "Plain", "Field"]
 map_type_value = [0, 1, 2, 3]
+map_type_map = dict(zip(map_type_dispaly, map_type_value))
 output_path = 'output/'
 
 def validate_range(value, min_value, max_value):
@@ -29,6 +30,14 @@ class ParameterApp:
         self.root.resizable(False, False)
 
         # Left Side
+        def update_checkboxes(event):
+            value = map_type_map[self.map_type.get()]
+            for i in range(4):
+                if value == i:
+                    sidebar_sub[i].pack()
+                else:
+                    sidebar_sub[i].pack_forget()
+
         sidebar = tk.Frame(root, padx=10, pady=10)
         sidebar.pack(side=tk.LEFT, fill=tk.Y)
 
@@ -38,6 +47,7 @@ class ParameterApp:
         self.map_type = tk.StringVar()
         map_type_menu = ttk.Combobox(sidebar, textvariable=self.map_type, values=map_type_dispaly, state="readonly")
         map_type_menu.set(map_type_dispaly[0])
+        map_type_menu.bind("<<ComboboxSelected>>", update_checkboxes)
         map_type_menu.pack()
 
         self.map_width = self.create_number_field(sidebar, "Map Width", 10, 300, 48)
@@ -45,13 +55,30 @@ class ParameterApp:
         self.map_padding = self.create_slider(sidebar, "Map Padding", 0, 9, 4)
         self.wall_height = self.create_slider(sidebar, "Wall Height", 1, 9, 2)
 
-        self.room_min_size, self.room_max_size = self.create_range_slider(sidebar, "Room Min Size", "Room Max Size", 0, 100, 25, 50, False)
-        self.room_padding = self.create_slider(sidebar, "Room Padding", 0, 100, 0, False)
-        self.corridor_wide_auto = self.create_switch(sidebar, "Auto Corridor Wide", False)
-        self.corridor_wide = self.create_slider(sidebar, "Corridor Wide", 0, 100, 50, False)
-        self.room_freq = self.create_slider(sidebar, "Room Frequency", 0, 100, 50, False)
+        sidebar_sub_base = tk.Frame(sidebar, pady=10)
+        sidebar_sub_base.pack()
+        sidebar_sub = []
+        for i in range(4):
+            sidebar_sub.append(tk.Frame(sidebar_sub_base))
+        sidebar_sub[0].pack()
+        
+        self.room_min_size, self.room_max_size = self.create_range_slider(sidebar_sub[0], "Room Min Size", "Room Max Size", 0, 100, 25, 50, False)
+        self.room_padding = self.create_slider(sidebar_sub[0], "Room Padding", 0, 100, 0, False)
+        self.corridor_wide_auto = self.create_switch(sidebar_sub[0], "Auto Corridor Wide", False)
+        self.corridor_wide = self.create_slider(sidebar_sub[0], "Corridor Wide", 0, 100, 50, False)
+        self.room_freq = self.create_slider(sidebar_sub[0], "Room Frequency", 0, 100, 50, False)
 
-        tk.Button(sidebar, text="Generate", command=self.on_submit).pack(pady=(10, 0))
+        self.wall_probability = self.create_slider(sidebar_sub[1], "Wall Frequency", 400, 600, 500, False)
+        self.cellular_iterations = self.create_slider(sidebar_sub[1], "Terrain Smoothness", 1, 10, 4, False)
+        
+        self.path_random_factor = self.create_slider(sidebar_sub[2], "Path Randomness", 0, 5, 3, False)
+        self.house_num = self.create_slider(sidebar_sub[2], "Number of House", 0, 15, 3)
+        self.town_boundary_margin = self.create_slider(sidebar_sub[2], "Town Padding", 0, 9, 3)
+        
+        self.perlin_scale = self.create_slider(sidebar_sub[3], "Terrain Complexity", 50, 200, 100, False)
+        self.elevation_level = self.create_slider(sidebar_sub[3], "Elevation Level", 0, 3, 1)
+
+        tk.Button(sidebar, text="Generate", command=self.on_submit).pack(side=tk.BOTTOM)
 
         # Center
         self.main_content = tk.Frame(root, padx=10, pady=10)
@@ -137,7 +164,6 @@ class ParameterApp:
             return
 
         self.result_image.text = "Generating..."
-        map_type_map = dict(zip(map_type_dispaly, map_type_value))
 
         setParam('map_type', map_type_map[self.map_type.get()])
         setParam('map_width', int(self.map_width.get()))
@@ -152,6 +178,16 @@ class ParameterApp:
         setParam('corridor_wide_auto', self.corridor_wide_auto.get())
         setParam('corridor_wide', mappedValue(self.corridor_wide.get(), 1, (int(self.room_min_size.get()) - int(self.wall_height.get())) // 2))
         setParam('room_freq', float(self.room_freq.get()) / 100)
+
+        setParam('wall_probability', float(self.wall_probability.get()) / 1000)
+        setParam('cellular_iterations', int(self.cellular_iterations.get()))
+
+        setParam('path_random_factor', int(self.path_random_factor.get()))
+        setParam('house_num', int(self.house_num.get()))
+        setParam('town_boundary_margin', int(self.town_boundary_margin.get()))
+        
+        setParam('perlin_scale', int(self.perlin_scale.get()))
+        setParam('elevation_level', int(self.elevation_level.get()))
 
         tileset = tile_crop.main()
         dungeon = dungeon_maker.main()
