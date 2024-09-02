@@ -1,18 +1,17 @@
 {% macro field(id, label, min, max, value) %}
 <div class="input-container">
     <label for="{{ id }}">{{ label }}</label>
-    <input type="number" id="{{ id }}" name="{{ id }}" min="{{ min }}" max="{{ max }}" value="{{ value }}" required >
+    <input type="number" id="{{ id }}" name="{{ id }}" min="{{ min }}" max="{{ max }}" value="{{ value }}" required>
 </div>
 {% endmacro %}
 
 {% macro slider(id, label, min, max, value, showValue) %}
 <div class="slider-container">
     <label for="{{ id }}">{{ label }}</label>
-    <input type="range" id="{{ id }}" name="{{ id }}" min="{{ min }}" max="{{ max }}" value="{{ value }}" 
-        {% if showValue %}
-        oninput="updateInputLabel('{{ id }}')"
-        {% endif %}
-     >
+    <input type="range" id="{{ id }}" name="{{ id }}" min="{{ min }}" max="{{ max }}" value="{{ value }}"
+           {% if showValue %}
+           oninput="updateInputLabel('{{ id }}')"
+           {% endif %}>
     {% if showValue %}
     <span id="{{ id }}_value">{{ value }}</span>
     {% endif %}
@@ -27,3 +26,12 @@
     <input type="range" id="{{ id2 }}" name="{{ id2 }}" min="{{ min }}" max="{{ max }}" value="{{ value2 }}" oninput="updateRangeMaxInput('{{ id1 }}', '{{ id2 }}')">
 </div>
 {% endmacro %}
+
+{% macro switch(id, label, value) %}
+<div class="switch-container">
+    <label for="{{ id }}">{{ label }}</label>
+    <input type="checkbox" id="{{ id }} {% if value %} checked {% endif %}">
+</div>
+{% endmacro %}
+
+

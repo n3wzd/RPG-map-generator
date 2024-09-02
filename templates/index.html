@@ -15,10 +15,10 @@
             <div class="select-container">
                 <label for="map_type">Map Type</label>
                 <select id="map_type" name="map_type">
-                      <option value="0">Dungeon</option>
-                      <option value="1">Cave</option>
-                      <option value="2">Plain</option>
-                      <option value="3">Field</option>
+                    <option value="0">Dungeon</option>
+                    <option value="1">Cave</option>
+                    <option value="2">Plain</option>
+                    <option value="3">Field</option>
                 </select>
             </div>
             {{ input.field('map_width', 'Map Width', '10', '300', '48') }}
@@ -26,8 +26,14 @@
             {{ input.slider('map_padding', 'Map Padding', '0', '9', '4', true) }}
             {{ input.slider('wall_height', 'Wall Height', '1', '9', '2', true) }}
 
+            {% if false %}
             {{ input.range('room_min_size', 'room_max_size', 'Room Min Size', 'Room Max Size', '0', '100', '25', '50') }}
+            {{ input.slider('room_padding', 'Room Padding', '0', '100', '0', false) }}
+            {{ input.switch('corridor_wide_auto ', 'Auto Corridor Wide', false) }}
             {{ input.slider('corridor_wide', 'Corridor Wide', '0', '100', '50', false) }}
+            {{ input.slider('room_freq', 'Room Frequency', '0', '100', '50', false) }}
+            {% endif %}
+
             <button id="submit_button" type="submit">Generate</button>
         </form>
     </div>
@@ -71,10 +77,14 @@
 
             let room_min_size = getElementValue('room_min_size');
             let room_max_size = getElementValue('room_max_size');
+            let room_padding = getElementValue('room_padding');
+            const corridor_wide_auto = getElementValue('corridor_wide_auto');
             let corridor_wide = getElementValue('corridor_wide');
+            const room_freq = getElementValue('room_freq');
 
             room_min_size = mappedValue(room_min_size, 4, Math.min(map_width, map_height) - map_padding);
             room_max_size = mappedValue(room_max_size, 4, Math.min(map_width, map_height) - map_padding);
+            room_padding = mappedValue(room_padding, 0, room_min_size / 2);
             corridor_wide = mappedValue(corridor_wide, 1, (room_min_size - wall_height) / 2);
 
             fetch('/submit', {
@@ -90,7 +100,10 @@
                     'wall_height': wall_height,
                     'room_min_size': room_min_size,
                     'room_max_size': room_max_size,
+                    'room_padding': room_padding,
+                    'corridor_wide_auto': corridor_wide_auto,
                     'corridor_wide': corridor_wide,
+                    'room_freq': room_freq,
                 })
             })
             .then(response => response.json())
@@ -106,7 +119,12 @@
             })
             .catch(error => console.error('Error:', error));
         });
-        
+
+        function updateMapType() {
+            const paramValue = getElement(map_type).value;
+            document.getElementById(paramId + '_value').textContent = paramValue;
+        }
+
         function updateInputLabel(paramId) {
             const paramValue = getElement(paramId).value;
             document.getElementById(paramId + '_value').textContent = paramValue;
