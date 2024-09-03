@@ -3,10 +3,33 @@ from PIL import Image
 import parameter as param
 
 tileset = []
-img_path = param.img_path
 tsz = param.TILE_PX_SIZE
 tsz2 = tsz // 2
 TILESET_LEN = 9999
+
+class ImagePaths:
+
+    def __init__(self, id):
+        if id == 1:
+            self.A1 = 'resource/Outside_A1.png'
+            self.A2 = 'resource/Outside_A2.png'
+            self.A3 = 'resource/Outside_A3.png'
+            self.A4 = 'resource/Outside_A4.png'
+            self.A5 = 'resource/Outside_A5.png'
+            self.B = 'resource/Outside_B.png'
+            self.C = 'resource/Outside_C.png'
+            self.D = 'resource/Outside_D.png'
+            self.E = 'resource/Outside_E.png'
+        if id == 2:
+            self.A1 = 'resource/Inside_A1.png'
+            self.A2 = 'resource/Inside_A2.png'
+            self.A3 = 'resource/Inside_A3.png'
+            self.A4 = 'resource/Inside_A4.png'
+            self.A5 = 'resource/Inside_A5.png'
+            self.B = 'resource/Inside_B.png'
+            self.C = 'resource/Inside_C.png'
+            self.D = 'resource/Inside_D.png'
+            self.E = 'resource/Inside_E.png'
 
 
 def create_image():
@@ -161,8 +184,10 @@ def crop_wall(img):
   return output
 
 
-def main():
+def main(tileset_id):
   A1, A2, A3, A4, A5, B, C, D, E = [[] for _ in range(9)]
+
+  img_path = ImagePaths(tileset_id)
 
   A1_img = open_img(img_path.A1)
   A2_img = open_img(img_path.A2)
@@ -237,11 +262,3 @@ def main():
       output[start:end] = flatten_2d_list(data) if flatten else data
 
   return output
-
-
-def print2(output):
-  test = Image.new('RGBA', (tsz * 6, tsz * 8), (0, 0, 0, 0))
-  for y in range(8):
-    for x in range(6):
-      test.paste(output[6800 + y * 6 + x], (x * tsz, y * tsz))
-  test.save('output.png')

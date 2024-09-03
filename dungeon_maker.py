@@ -434,7 +434,6 @@ class Dungeon:
           BFS(x, y)
 
   def place_structure(self):
-
     def create_rect_list():
       mg = param.house_margin
       for _ in range(param.house_num):
@@ -622,13 +621,14 @@ class Dungeon:
             self.bmap[y][x][0] = tile.path
 
       for node in mst:
-        A, B = strc_list[node[0]], strc_list[node[1]]
-        start_x, start_y = (A.x1 + A.x2) // 2, A.y2
-        dest_x, dest_y = (B.x1 + B.x2) // 2, B.y2
-        for dy in range(param.house_margin[3]):
-          self.bmap[start_y - dy - 1][start_x][0] = tile.path
-          self.bmap[dest_y - dy - 1][dest_x][0] = tile.path
-        make_path((start_x, start_y), (dest_x, dest_y))
+        if node[0] < len(strc_list) and node[1] < len(strc_list):
+            A, B = strc_list[node[0]], strc_list[node[1]]
+            start_x, start_y = (A.x1 + A.x2) // 2, A.y2
+            dest_x, dest_y = (B.x1 + B.x2) // 2, B.y2
+            for dy in range(param.house_margin[3]):
+              self.bmap[start_y - dy - 1][start_x][0] = tile.path
+              self.bmap[dest_y - dy - 1][dest_x][0] = tile.path
+            make_path((start_x, start_y), (dest_x, dest_y))
 
     strc_list = set_structure_position()
     mst = generate_structure_graph(strc_list)
@@ -799,12 +799,15 @@ class Dungeon:
 
   def place_area_all(self):
     for tx in tile.extra:
-      self.place_area(tx.base, tile.floor, 0)
+      if param.theme[tx.base.id] != 0:
+        self.place_area(tx.base, tile.floor, 0)
     for tx in tile.floor_cover:
-      self.place_area(tx, tile.floor, 1)
+      if param.theme[tx.id] != 0:
+        self.place_area(tx, tile.floor, 1)
     for tx in tile.extra:
-      for cx in tx.coverList:
-        self.place_area(cx, tx.base.id, 1)
+      if param.theme[tx.base.id] != 0:
+        for cx in tx.coverList:
+          self.place_area(cx, tx.base.id, 1)
 
   def place_cascade(self, area_tile_set):
 

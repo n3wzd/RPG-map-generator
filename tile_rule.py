@@ -49,9 +49,17 @@ blank = TileCore.id_gen()
 floor = TileCore.id_gen(0)
 wall = TileCore.id_gen(1)
 ceil = TileCore.id_gen(0)
-floor_cover = []
+floor_cover = [
+    AreaTile(seed_rate=0.002, cap_min=10, cap_max=15),
+    AreaTile(seed_rate=0.002, cap_min=10, cap_max=15),
+    AreaTile(seed_rate=0.002, cap_min=10, cap_max=15),
+    AreaTile(seed_rate=0.002, cap_min=10, cap_max=15),
+]
 extra = [
-    AreaTileSet(AreaTile(seed_rate=0.002, cap_min=10, cap_max=15, carpet=False))
+    AreaTileSet(AreaTile(seed_rate=0.002, cap_min=10, cap_max=15)),
+    AreaTileSet(AreaTile(seed_rate=0.002, cap_min=10, cap_max=15)),
+    AreaTileSet(AreaTile(seed_rate=0.002, cap_min=10, cap_max=15)),
+    AreaTileSet(AreaTile(seed_rate=0.002, cap_min=10, cap_max=15)),
 ]
 path = TileCore.id_gen(0)
 floor_ev = [floor, ceil] + [TileCore.id_gen(0)] * 4

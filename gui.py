@@ -7,11 +7,16 @@ import map_to_image
 import map_to_json
 import parameter as param
 import tile_crop
+import tile_rule as tile
 
 map_type_dispaly = ["Dungeon", "Cave", "Plain", "Field"]
 map_type_value = [0, 1, 2, 3]
 map_type_map = dict(zip(map_type_dispaly, map_type_value))
 output_path = 'output/'
+tileset = tile_crop.main(1)
+
+def get_all_tileset():
+    return tile_crop.main(1)
 
 def validate_range(value, min_value, max_value):
     try:
@@ -22,70 +27,115 @@ def validate_range(value, min_value, max_value):
     except ValueError:
         return False
 
-class ParameterApp:
+def center_window(window, width, height):
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+
+    x = int((screen_width / 2) - (width / 2))
+    y = int((screen_height / 2) - (height / 2))
+
+    window.geometry(f"{width}x{height}+{x}+{y}")
+
+class GUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Parameter UI")
-        self.root.geometry("1200x800")
+        self.root.title("RPG Map Generator")
         self.root.resizable(False, False)
+        center_window(root, 1500, 800)
 
         # Left Side
         def update_checkboxes(event):
             value = map_type_map[self.map_type.get()]
             for i in range(4):
                 if value == i:
-                    sidebar_sub[i].pack()
+                    sidebar_left_sub[i].pack()
                 else:
-                    sidebar_sub[i].pack_forget()
+                    sidebar_left_sub[i].pack_forget()
 
-        sidebar = tk.Frame(root, padx=10, pady=10)
-        sidebar.pack(side=tk.LEFT, fill=tk.Y)
+        sidebar_left = tk.Frame(root, padx=10, pady=10)
+        sidebar_left.pack(side=tk.LEFT, fill=tk.Y)
 
-        tk.Label(sidebar, text="Parameters", font=("Arial", 16)).pack(pady=(0, 10))
+        tk.Label(sidebar_left, text="Parameters", font=("Arial", 16)).pack(pady=(0, 10))
 
-        tk.Label(sidebar, text="Map Type").pack(anchor=tk.W)
+        tk.Label(sidebar_left, text="Map Type").pack(anchor=tk.W)
         self.map_type = tk.StringVar()
-        map_type_menu = ttk.Combobox(sidebar, textvariable=self.map_type, values=map_type_dispaly, state="readonly")
+        map_type_menu = ttk.Combobox(sidebar_left, textvariable=self.map_type, values=map_type_dispaly, state="readonly")
         map_type_menu.set(map_type_dispaly[0])
         map_type_menu.bind("<<ComboboxSelected>>", update_checkboxes)
         map_type_menu.pack()
 
-        self.map_width = self.create_number_field(sidebar, "Map Width", 10, 300, 48)
-        self.map_height = self.create_number_field(sidebar, "Map Height", 10, 300, 48)
-        self.map_padding = self.create_slider(sidebar, "Map Padding", 0, 9, 4)
-        self.wall_height = self.create_slider(sidebar, "Wall Height", 1, 9, 2)
+        self.map_width = self.create_number_field(sidebar_left, "Map Width", 10, 300, 48)
+        self.map_height = self.create_number_field(sidebar_left, "Map Height", 10, 300, 48)
+        self.map_padding = self.create_slider(sidebar_left, "Map Padding", 0, 9, 4)
+        self.wall_height = self.create_slider(sidebar_left, "Wall Height", 1, 9, 2)
 
-        sidebar_sub_base = tk.Frame(sidebar, pady=10)
-        sidebar_sub_base.pack()
-        sidebar_sub = []
+        sidebar_left_sub_base = tk.Frame(sidebar_left, pady=10)
+        sidebar_left_sub_base.pack()
+        sidebar_left_sub = []
         for i in range(4):
-            sidebar_sub.append(tk.Frame(sidebar_sub_base))
-        sidebar_sub[0].pack()
+            sidebar_left_sub.append(tk.Frame(sidebar_left_sub_base))
+        sidebar_left_sub[0].pack()
         
-        self.room_min_size, self.room_max_size = self.create_range_slider(sidebar_sub[0], "Room Min Size", "Room Max Size", 0, 100, 25, 50, False)
-        self.room_padding = self.create_slider(sidebar_sub[0], "Room Padding", 0, 100, 0, False)
-        self.corridor_wide_auto = self.create_switch(sidebar_sub[0], "Auto Corridor Wide", False)
-        self.corridor_wide = self.create_slider(sidebar_sub[0], "Corridor Wide", 0, 100, 50, False)
-        self.room_freq = self.create_slider(sidebar_sub[0], "Room Frequency", 0, 100, 50, False)
+        self.room_min_size, self.room_max_size = self.create_range_slider(sidebar_left_sub[0], "Room Min Size", "Room Max Size", 0, 100, 25, 50, False)
+        self.room_padding = self.create_slider(sidebar_left_sub[0], "Room Padding", 0, 100, 0, False)
+        self.corridor_wide_auto = self.create_switch(sidebar_left_sub[0], "Auto Corridor Wide", False)
+        self.corridor_wide = self.create_slider(sidebar_left_sub[0], "Corridor Wide", 0, 100, 50, False)
+        self.room_freq = self.create_slider(sidebar_left_sub[0], "Room Frequency", 0, 100, 50, False)
 
-        self.wall_probability = self.create_slider(sidebar_sub[1], "Wall Frequency", 400, 600, 500, False)
-        self.cellular_iterations = self.create_slider(sidebar_sub[1], "Terrain Smoothness", 1, 10, 4, False)
+        self.wall_probability = self.create_slider(sidebar_left_sub[1], "Wall Frequency", 400, 600, 500, False)
+        self.cellular_iterations = self.create_slider(sidebar_left_sub[1], "Terrain Smoothness", 1, 10, 4, False)
         
-        self.path_random_factor = self.create_slider(sidebar_sub[2], "Path Randomness", 0, 5, 3, False)
-        self.house_num = self.create_slider(sidebar_sub[2], "Number of House", 0, 15, 3)
-        self.town_boundary_margin = self.create_slider(sidebar_sub[2], "Town Padding", 0, 9, 3)
+        self.path_random_factor = self.create_slider(sidebar_left_sub[2], "Path Randomness", 0, 5, 3, False)
+        self.house_num = self.create_slider(sidebar_left_sub[2], "Number of House", 0, 15, 3)
+        self.town_boundary_margin = self.create_slider(sidebar_left_sub[2], "Town Padding", 0, 9, 3)
         
-        self.perlin_scale = self.create_slider(sidebar_sub[3], "Terrain Complexity", 50, 200, 100, False)
-        self.elevation_level = self.create_slider(sidebar_sub[3], "Elevation Level", 0, 3, 1)
+        self.perlin_scale = self.create_slider(sidebar_left_sub[3], "Terrain Complexity", 50, 200, 100, False)
+        self.elevation_level = self.create_slider(sidebar_left_sub[3], "Elevation Level", 0, 3, 1)
 
-        tk.Button(sidebar, text="Generate", command=self.on_submit).pack(side=tk.BOTTOM)
+        tk.Button(sidebar_left, text="Generate", command=self.on_submit).pack(side=tk.BOTTOM)
+
+        # Right
+        sidebar_right = tk.Frame(root, padx=10, pady=10)
+        sidebar_right.pack(side=tk.RIGHT, fill=tk.Y)
+
+        tk.Label(sidebar_right, text="Tiles", font=("Arial", 16)).pack(pady=(0, 10))
+        self.tile_tree = ttk.Treeview(sidebar_right, columns=("text", "image"), show="tree")
+        self.tile_tree.column("text", width=80)
+        self.tile_tree.column("image", width=48)
+        self.tile_tree.pack(fill="both", expand=True)
+
+        style = ttk.Style()
+        style.configure("Treeview", rowheight=48)
+
+        self.tile_tree_image = {}
+        self.insert_tree_button("floor", tile.floor)
+        self.insert_tree_button("wall", tile.wall)
+        self.insert_tree_button("ceil", tile.ceil)
+        self.insert_tree_button("blank", tile.blank)
+        self.insert_tree_button("path", tile.path)
+        self.insert_tree_button("cover_0", tile.floor_cover[0].id, tile.floor)
+        self.insert_tree_button("cover_1", tile.floor_cover[1].id, tile.floor)
+        self.insert_tree_button("cover_2", tile.floor_cover[2].id, tile.floor)
+        self.insert_tree_button("cover_3", tile.floor_cover[3].id, tile.floor)
+        self.insert_tree_button("extra_0", tile.extra[0].base.id)
+        self.insert_tree_button("extra_1", tile.extra[1].base.id)
+        self.insert_tree_button("extra_2", tile.extra[2].base.id)
+        self.insert_tree_button("extra_3", tile.extra[3].base.id)
+
+        def on_tree_item_click(event):
+            item_id = self.tile_tree.identify_row(event.y)
+            if item_id != "" and event.x > 20:
+                self.open_tile_selection_window(self.tile_tree.item(item_id, "values")[0], item_id)
+
+        self.tile_tree.bind("<Button-1>", on_tree_item_click)
 
         # Center
         self.main_content = tk.Frame(root, padx=10, pady=10)
-        self.main_content.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        self.main_content.pack(fill=tk.BOTH, expand=True)
 
         self.result_image = tk.Label(self.main_content, text="Press generate button to create map!")
         self.result_image.pack(fill=tk.BOTH, expand=True)
+
 
     def create_number_field(self, parent, label, min_val, max_val, default_val):
         def on_validate_input(*args):
@@ -140,6 +190,61 @@ class ParameterApp:
         checkbutton.pack()
         return switch
 
+    def open_tile_selection_window(self, title, tile_key):
+        grid_width = 8
+        grid_height = 16
+        tiles = []
+
+        def on_tile_click(row, col):
+            param.theme[int(tile_key)] = 2048 + 48 * (col + row * grid_width)
+            self.update_tree_button(tile_key)
+            new_window.destroy()
+
+        new_window = tk.Toplevel(root)
+        new_window.title(title)
+        new_window.resizable(False, False)
+        center_window(new_window, 450, 600)
+        
+        outer_frame = tk.Frame(new_window)
+        outer_frame.place(x=0, y=0, relwidth=1, relheight=1)
+        canvas = tk.Canvas(outer_frame, bg="lightgrey")
+        canvas.pack(side='left', fill='both', expand=True)
+        scrollbar = tk.Scrollbar(outer_frame, orient="vertical", command=canvas.yview)
+        scrollbar.pack(side='right', fill='y')
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollable_frame = tk.Frame(canvas)
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+        row_cnt = 0
+        wall_row = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1]
+        for row in range(grid_height):
+            row_tiles = []
+            for col in range(grid_width):
+                photo = ImageTk.PhotoImage(tileset[2048 + 48 * (col + row * grid_width)])
+                tile_button = tk.Button(scrollable_frame, image=photo, relief="flat", command=lambda r=row, c=col: on_tile_click(r, c), bg="lightgrey")
+                tile_button.grid(row=row_cnt, column=col)
+                tile_button.image = photo
+                row_tiles.append(tile_button)
+            tiles.append(row_tiles)
+            if(wall_row[row] == bool(tile_key == str(tile.wall))):
+                row_cnt += 1
+
+        scrollable_frame.update_idletasks()
+        canvas.config(scrollregion=canvas.bbox("all"))
+
+        new_window.grid_rowconfigure(0, weight=1)
+        new_window.grid_columnconfigure(0, weight=1)
+
+    def update_tree_button(self, tile_key):
+        photo = ImageTk.PhotoImage(tileset[param.theme[int(tile_key)]])
+        self.tile_tree.item(tile_key, image=photo)
+        self.tile_tree_image[tile_key] = photo
+
+    def insert_tree_button(self, label, tile_key, parent=""):
+        photo = ImageTk.PhotoImage(tileset[param.theme[int(tile_key)]])
+        self.tile_tree.insert(parent, "end", tile_key, values=(label, ""), image=photo)
+        self.tile_tree_image[tile_key] = photo
+
     def update_image(self, img_path):
         width = self.result_image.winfo_width()
         height = self.result_image.winfo_height()
@@ -148,7 +253,7 @@ class ParameterApp:
         photo = ImageTk.PhotoImage(image)
 
         self.result_image.config(image=photo)
-        self.result_image.image = photo  # Keep a reference to avoid garbage collection
+        self.result_image.image = photo
 
     def on_submit(self):
         def setParam(key, value):
@@ -189,7 +294,6 @@ class ParameterApp:
         setParam('perlin_scale', int(self.perlin_scale.get()))
         setParam('elevation_level', int(self.elevation_level.get()))
 
-        tileset = tile_crop.main()
         dungeon = dungeon_maker.main()
         img_path = map_to_image.main(dungeon.map, tileset, param.map_id, output_path)
         map_to_json.main(dungeon.map, param.tileset_id, param.map_id, output_path)
@@ -197,7 +301,6 @@ class ParameterApp:
         self.update_image(img_path)
 
 
-# Create and run the Tkinter application     
 root = tk.Tk()
-app = ParameterApp(root)
+app = GUI(root)
 root.mainloop()

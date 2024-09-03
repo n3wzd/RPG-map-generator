@@ -40,22 +40,23 @@ elevation_level = 1  # min = 0, max = 3
 theme = {
     tile.transparent: 0,
     tile.blank: 1536,
-    tile.floor: 7424,  # 2816
-    tile.wall: 7808,  # 7184
-    tile.ceil: 7424,  # 6800
-    tile.extra[0].base.id: 2048,  # 2912
+    tile.floor: 7424,
+    tile.wall: 7808,
+    tile.ceil: 7424,
     tile.path: 2912,
+    tile.floor_cover[0].id: 0,
+    tile.floor_cover[1].id: 0,
+    tile.floor_cover[2].id: 0,
+    tile.floor_cover[3].id: 0,
+    tile.extra[0].base.id: 0,
+    tile.extra[1].base.id: 0,
+    tile.extra[2].base.id: 0,
+    tile.extra[3].base.id: 0,
 }
 
 for f in tile.floor_ev:
     if f not in [tile.floor, tile.ceil]:
         theme[f] = theme[tile.ceil]
-
-# tile.floor_cover[0].id: 3008,  # 3008
-# tile.floor_cover[1].id: 3488,  # 3920
-# tile.extra[0].coverList[0].id: 2144,
-# tile.extra[0].coverList[1].id: 2192,
-# tile.extra[0].cascade.id: 2480,
 
 structure_data = [
     [
@@ -69,35 +70,6 @@ structure_data = [
         [248, 249, 250],
     ],
 ]
-
-
-# Path
-class ImagePaths:
-
-    def __init__(self, id):
-        if id == 1:
-            self.A1 = 'resource/Outside_A1.png'
-            self.A2 = 'resource/Outside_A2.png'
-            self.A3 = 'resource/Outside_A3.png'
-            self.A4 = 'resource/Outside_A4.png'
-            self.A5 = 'resource/Outside_A5.png'
-            self.B = 'resource/Outside_B.png'
-            self.C = 'resource/Outside_C.png'
-            self.D = 'resource/Outside_D.png'
-            self.E = 'resource/Outside_E.png'
-        if id == 2:
-            self.A1 = 'resource/Inside_A1.png'
-            self.A2 = 'resource/Inside_A2.png'
-            self.A3 = 'resource/Inside_A3.png'
-            self.A4 = 'resource/Inside_A4.png'
-            self.A5 = 'resource/Inside_A5.png'
-            self.B = 'resource/Inside_B.png'
-            self.C = 'resource/Inside_C.png'
-            self.D = 'resource/Inside_D.png'
-            self.E = 'resource/Inside_E.png'
-
-
-img_path = ImagePaths(tileset_id)
 
 # Constant
 TILE_PX_SIZE = 48
