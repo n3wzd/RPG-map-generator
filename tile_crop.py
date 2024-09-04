@@ -1,36 +1,34 @@
+from pathlib import Path
 from PIL import Image
 
 import parameter as param
 
-tileset = []
+tileset = {}
+tileset_key = []
 tsz = param.TILE_PX_SIZE
 tsz2 = tsz // 2
 TILESET_LEN = 9999
+img_path = {}
 
-class ImagePaths:
+def set_img_path():
+    def add_path(key, sub_key, value):
+      if key not in img_path:
+        img_path[key] = {}
+        tileset_key.append(key)
+        for tk in tk_dt:
+          img_path[key][tk] = ""
+      img_path[key][sub_key] = value
 
-    def __init__(self, id):
-        if id == 1:
-            self.A1 = 'resource/Outside_A1.png'
-            self.A2 = 'resource/Outside_A2.png'
-            self.A3 = 'resource/Outside_A3.png'
-            self.A4 = 'resource/Outside_A4.png'
-            self.A5 = 'resource/Outside_A5.png'
-            self.B = 'resource/Outside_B.png'
-            self.C = 'resource/Outside_C.png'
-            self.D = 'resource/Outside_D.png'
-            self.E = 'resource/Outside_E.png'
-        if id == 2:
-            self.A1 = 'resource/Inside_A1.png'
-            self.A2 = 'resource/Inside_A2.png'
-            self.A3 = 'resource/Inside_A3.png'
-            self.A4 = 'resource/Inside_A4.png'
-            self.A5 = 'resource/Inside_A5.png'
-            self.B = 'resource/Inside_B.png'
-            self.C = 'resource/Inside_C.png'
-            self.D = 'resource/Inside_D.png'
-            self.E = 'resource/Inside_E.png'
+    folder_path = Path('resource')
+    tk_dt = ["A1", "A2", "A3", "A4", "A5", "B", "C", "D", "E"]
 
+    for file in folder_path.rglob('*'):
+        if file.is_file():
+            for i in range(len(tk_dt)):
+                if file.name[-len(tk_dt[i])-5:] == "_" + tk_dt[i] + ".png":
+                  add_path(file.name[:-len(tk_dt[i])-5], tk_dt[i], str(file))
+
+set_img_path()
 
 def create_image():
   return Image.new('RGBA', (tsz, tsz), (0, 0, 0, 0))
@@ -40,6 +38,8 @@ def open_img(path):
   try:
     return Image.open(path)
   except FileNotFoundError:
+    return None
+  except PermissionError:
     return None
 
 
@@ -184,20 +184,18 @@ def crop_wall(img):
   return output
 
 
-def main(tileset_id):
+def get_tileset(tile_type):
   A1, A2, A3, A4, A5, B, C, D, E = [[] for _ in range(9)]
 
-  img_path = ImagePaths(tileset_id)
-
-  A1_img = open_img(img_path.A1)
-  A2_img = open_img(img_path.A2)
-  A3_img = open_img(img_path.A3)
-  A4_img = open_img(img_path.A4)
-  A5_img = open_img(img_path.A5)
-  B_img = open_img(img_path.B)
-  C_img = open_img(img_path.C)
-  D_img = open_img(img_path.D)
-  E_img = open_img(img_path.E)
+  A1_img = open_img(img_path[tile_type]["A1"])
+  A2_img = open_img(img_path[tile_type]["A2"])
+  A3_img = open_img(img_path[tile_type]["A3"])
+  A4_img = open_img(img_path[tile_type]["A4"])
+  A5_img = open_img(img_path[tile_type]["A5"])
+  B_img = open_img(img_path[tile_type]["B"])
+  C_img = open_img(img_path[tile_type]["C"])
+  D_img = open_img(img_path[tile_type]["D"])
+  E_img = open_img(img_path[tile_type]["E"])
 
   if (A1_img is not None):
     A1_pre = crop_2D(A1_img, 8, 4, 2 * tsz, 3 * tsz)
@@ -241,7 +239,7 @@ def main(tileset_id):
   if (E_img is not None):
     E = crop_1D(E_img, 8, 16, 2)
 
-  output = [None] * TILESET_LEN
+  output = [Image.new('RGBA', (tsz, tsz), (0, 0, 0, 0))] * TILESET_LEN
 
   def flatten_2d_list(list):
     return [item for row in list for item in row]
@@ -262,3 +260,8 @@ def main(tileset_id):
       output[start:end] = flatten_2d_list(data) if flatten else data
 
   return output
+
+def main():
+  for key in tileset_key:
+    tileset[key] = get_tileset(key)
+  return tileset

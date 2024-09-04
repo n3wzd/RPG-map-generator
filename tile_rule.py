@@ -66,35 +66,25 @@ floor_ev = [floor, ceil] + [TileCore.id_gen(0)] * 4
 
 
 # Normal Deco Tile Rule
-class Prob:
-
-    def __init__(self, target, prob, adj_wall=(0, 0, 0)):
-        self.target = target
-        self.prob = prob
-        self.adj_wall = adj_wall  # (up, down, side), only floor
-
-
 AJW_UP = (1, 0, 0)
 
 gen_normal = {
-    floor: [
-        Prob(88, 0.01),
-        Prob(89, 0.01),
-        Prob(90, 0.01),
-        Prob(91, 0.01),
-        Prob(92, 0.01),
-        Prob(96, 0.01),
-        Prob(97, 0.01),
-        Prob(98, 0.01),
-        Prob(99, 0.01),
-        Prob(100, 0.01),
-    ],
-    wall: [
-        Prob(195, 0.01),
-        Prob(203, 0.01),
-    ],
+    floor: [0] * 1024,
+    wall: [0] * 1024,
 }
 
+gen_normal[floor][88] = 1
+gen_normal[floor][89] = 1
+gen_normal[floor][90] = 1
+gen_normal[floor][91] = 1
+gen_normal[floor][92] = 1
+gen_normal[floor][96] = 1
+gen_normal[floor][97] = 1
+gen_normal[floor][98] = 1
+gen_normal[floor][99] = 1
+gen_normal[floor][100] = 1
+gen_normal[wall][195] = 1
+gen_normal[wall][203] = 1
 
 # Group Deco Tile Rule
 class Group:

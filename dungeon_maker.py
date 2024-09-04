@@ -437,10 +437,9 @@ class Dungeon:
     def create_rect_list():
       mg = param.house_margin
       for _ in range(param.house_num):
-        id = random.choice([0, 1])
-        strc = param.structure_data[id]
+        strc = param.structure_data[0]
         rects.append(
-            (len(strc[0]) + mg[0] + mg[1], len(strc) + mg[2] + mg[3], id))
+            (len(strc[0]) + mg[0] + mg[1], len(strc) + mg[2] + mg[3], 0))
       rects.sort(key=lambda x: x[0] * x[1], reverse=True)
 
     def create_collide_map():
@@ -953,26 +952,42 @@ class Dungeon:
             self.map[y][x][r] += interpolate_cascade_tile(x, y, r)
 
   def place_decorations(self):
+    class Prob:
+        def __init__(self, target, prob):
+          self.target = target
+          self.prob = prob
 
-    def check_adj_wall(x, y, cond):
-      flag = True
-      if cond.adj_wall[0] and y > 0:
-        flag = flag and self.bmap[y - 1][x][0] == tile.wall
-      if cond.adj_wall[1] and y < param.map_height - 1:
-        flag = flag and self.bmap[y + 1][x][0] == tile.ceil
-      if cond.adj_wall[2] and 0 < x < param.map_width - 1:
-        flag = flag and (self.bmap[y][x + 1][0] == tile.ceil
-                         or self.bmap[y][x - 1][0] == tile.ceil)
-      return flag
+    def convert_to_prob_structure(old_gen):
+        new_gen = {
+            tile.floor: [],
+            tile.wall: [],
+        }
+
+        for index, prob_value in enumerate(tile.gen_normal[tile.floor]):
+          if prob_value > 0:
+            new_gen[tile.floor].append(Prob(target=index, prob=prob_value))
+        
+        for index, prob_value in enumerate(tile.gen_normal[tile.wall]):
+          if prob_value > 0:
+            new_gen[tile.wall].append(Prob(target=index, prob=prob_value))
+
+        return new_gen
+
+    gen_deco = convert_to_prob_structure(tile.gen_normal)
+    gen_deco_len = {
+        tile.floor: len(gen_deco[tile.floor]) + 1,
+        tile.wall: len(gen_deco[tile.wall]) + 1,
+    }
 
     def gen_deco_tiles(x, y):
       tiles = []
       tile_basic = self.bmap[y][x][0]
       if param.map_type == 3 and tile_basic in tile.floor_ev:
         tile_basic = tile.floor
-      for cond in tile.gen_normal.get(tile_basic, []):
+
+      for cond in gen_deco.get(tile_basic, []):
         if (self.map[y][x][tile.layer_data[cond.target]] == tile.transparent
-            and random.random() < cond.prob and check_adj_wall(x, y, cond)):
+            and random.random() < cond.prob / 10 / gen_deco_len[tile_basic]):
           tiles.append(cond)
       return tiles
 
