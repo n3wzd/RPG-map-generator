@@ -1,15 +1,17 @@
 import tile_rule as tile
 
 # User
+tileset_type = ""
 tileset_id = 1
-map_id = 18
+map_id = 1
 
 # Map Basic
+map_type = 3  # 0: BSP, 1: cellular_automata, 2: plain, 3: perlin_noise
 map_width = 64  # min = 10, max = 300
 map_height = 64  # min = 10, max = 300
 map_padding = 4  # min = 1, max = 9
-map_type = 3  # 0: BSP, 1: cellular_automata, 2: plain, 3: perlin_noise
 wall_height = 4  # min = 0, max = 9
+deco_rate = 1.0  # min = 0.0, max = 1.0
 
 ## Dungeon(BSP)
 room_min_size = 4  # min = 4, max = min(w, h) - pd, only floor
@@ -74,3 +76,7 @@ TILE_PX_SIZE = 48
 # 3 = Deco Tile 2
 # 4 = Shadow Tile
 # 5 = Restrict ID (Not Used)
+
+# Path
+output_path = 'output/'
+setting_path = 'settings.ini'

@@ -73,19 +73,6 @@ gen_normal = {
     wall: [0] * 1024,
 }
 
-gen_normal[floor][88] = 1
-gen_normal[floor][89] = 1
-gen_normal[floor][90] = 1
-gen_normal[floor][91] = 1
-gen_normal[floor][92] = 1
-gen_normal[floor][96] = 1
-gen_normal[floor][97] = 1
-gen_normal[floor][98] = 1
-gen_normal[floor][99] = 1
-gen_normal[floor][100] = 1
-gen_normal[wall][195] = 1
-gen_normal[wall][203] = 1
-
 # Group Deco Tile Rule
 class Group:
 
@@ -96,34 +83,7 @@ class Group:
         self.base_id = base_id  # -1: same with origin, -2: don't care
 
 
-gen_group = {
-    32: [
-        Group(40, (0, 1)),
-    ],
-    33: [
-        Group(41, (0, 1)),
-    ],
-    60: [
-        Group(52, (0, -1), -2),
-    ],
-    61: [
-        Group(53, (0, -1), -2),
-    ],
-    62: [
-        Group(54, (0, -1), -2),
-        Group(55, (1, -1), -2),
-        Group(63, (1, 0)),
-    ],
-    72: [
-        Group(64, (0, -1), -2),
-    ],
-    73: [
-        Group(65, (0, -1), -2),
-    ],
-    80: [
-        Group(88, (0, 1)),
-    ],
-}
+gen_group = {}
 
 # Deco Tile Layer Rule
 layer_data = [2] * 9999

@@ -987,7 +987,7 @@ class Dungeon:
 
       for cond in gen_deco.get(tile_basic, []):
         if (self.map[y][x][tile.layer_data[cond.target]] == tile.transparent
-            and random.random() < cond.prob / 10 / gen_deco_len[tile_basic]):
+            and random.random() < cond.prob / 10 / gen_deco_len[tile_basic] * param.deco_rate):
           tiles.append(cond)
       return tiles
 
