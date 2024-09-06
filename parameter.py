@@ -17,7 +17,7 @@ deco_rate = 1.0  # min = 0.0, max = 1.0
 room_min_size = 4  # min = 4, max = min(w, h) - pd, only floor
 room_max_size = 20
 room_padding = 1  # min = 0, max = rmsz // 2
-corridor_wide_auto = False
+corridor_wide_auto = True
 corridor_wide = 1  # min = 1, max = (rmsz - wh) // 2
 room_freq = 0.75  # min = 0.0, max = 1.0
 
