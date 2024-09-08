@@ -155,6 +155,7 @@ class GUI:
         var_corridor_wide = mappedValueInverse(param.corridor_wide, 1, (param.room_min_size - param.wall_height) // 2)
         self.room_min_size, self.room_max_size = self.create_range_slider(sidebar_left_sub[0], "Room Min Size", "Room Max Size", 0, 100, var_room_min_size, var_room_max_size, False)
         self.room_padding = self.create_slider(sidebar_left_sub[0], "Room Padding", 0, 100, var_room_padding, False)
+        self.corridor_wide_auto = self.create_switch(sidebar_left_sub[0], "Auto Corridor Wide", False)
         self.corridor_wide = self.create_slider(sidebar_left_sub[0], "Corridor Wide", 0, 100, var_corridor_wide, False)
         self.room_freq = self.create_slider(sidebar_left_sub[0], "Room Frequency", 0, 100, param.room_freq * 100, False)
 
@@ -183,6 +184,7 @@ class GUI:
         self.insert_tree_button("wall", tile.wall)
         self.insert_tree_button("ceil", tile.ceil)
         self.insert_tree_button("path", tile.path)
+        self.insert_tree_button("vertex", tile.vertex)
         self.insert_tree_button("cover_0", tile.floor_cover[0].id, tile.floor)
         self.insert_tree_button("cover_1", tile.floor_cover[1].id, tile.floor)
         self.insert_tree_button("cover_2", tile.floor_cover[2].id, tile.floor)
@@ -243,6 +245,15 @@ class GUI:
         else:
             photo = ImageTk.PhotoImage(Image.new('RGBA', (param.TILE_PX_SIZE, param.TILE_PX_SIZE), (0, 0, 0, 0)))
         return photo
+
+    def create_switch(self, parent, label, default_val):
+        frame = tk.Frame(parent)
+        frame.pack(pady=(15, 0))
+        tk.Label(frame, text=label).pack(anchor=tk.W)
+        switch = tk.BooleanVar(value=default_val)
+        checkbutton = ttk.Checkbutton(frame, variable=switch)
+        checkbutton.pack()
+        return switch
 
     def create_number_field(self, parent, label, min_val, max_val, default_val):
         def on_validate_input(*args):
@@ -325,11 +336,11 @@ class GUI:
         if is_deco:
             def on_tile_click(row, col):
                 key = tile_const + (col + row * grid_width)
-                if tile.gen_normal[int(tile_target)][key] > 0:
-                    tile.gen_normal[int(tile_target)][key] = 0
+                if param.tilegen_normal[int(tile_target)][key] > 0:
+                    param.tilegen_normal[int(tile_target)][key] = 0
                     grid_button[row][col].config(bg="lightgrey")
                 else:
-                    tile.gen_normal[int(tile_target)][key] = 1
+                    param.tilegen_normal[int(tile_target)][key] = 1
                     grid_button[row][col].config(bg="yellow")
 
             grid_button = [[0 for _ in range(grid_width)] for _ in range(grid_height)]
@@ -340,7 +351,7 @@ class GUI:
                         lambda r=row, c=col: on_tile_click(r, c), bg="lightgrey")
                     grid_button[row][col].grid(row=row, column=col)
                     grid_button[row][col].image = photo
-                    if tile.gen_normal[int(tile_target)][tile_const + (col + row * grid_width)] > 0:
+                    if param.tilegen_normal[int(tile_target)][tile_const + (col + row * grid_width)] > 0:
                         grid_button[row][col].config(bg="yellow")  
         else:
             row_cnt = 0
@@ -415,6 +426,7 @@ class GUI:
         setParam('room_min_size', mappedValue(self.room_min_size.get() // 4, 4, room_size_limit))
         setParam('room_max_size', mappedValue(self.room_max_size.get() // 4, 4, room_size_limit))
         setParam('room_padding', mappedValue(self.room_padding.get(), 0, param.room_min_size // 2))
+        setParam('corridor_wide_auto', bool(self.corridor_wide_auto.get()))
         setParam('corridor_wide', mappedValue(self.corridor_wide.get(), 1, (param.room_min_size - param.wall_height) // 2))
         setParam('room_freq', float(self.room_freq.get()) / 100)
 

@@ -62,16 +62,8 @@ extra = [
     AreaTileSet(AreaTile(seed_rate=0.002, cap_min=10, cap_max=15)),
 ]
 path = TileCore.id_gen(0)
+vertex = TileCore.id_gen()
 floor_ev = [floor, ceil] + [TileCore.id_gen(0)] * 4
-
-
-# Normal Deco Tile Rule
-AJW_UP = (1, 0, 0)
-
-gen_normal = {
-    floor: [0] * 1024,
-    wall: [0] * 1024,
-}
 
 # Group Deco Tile Rule
 class Group:

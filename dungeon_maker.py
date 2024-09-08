@@ -437,9 +437,9 @@ class Dungeon:
     def create_rect_list():
       mg = param.house_margin
       for _ in range(param.house_num):
-        strc = param.structure_data[0]
+        strc = param.theme[tile.vertex]
         rects.append(
-            (len(strc[0]) + mg[0] + mg[1], len(strc) + mg[2] + mg[3], 0))
+            (1 + mg[0] + mg[1], 1 + mg[2] + mg[3], 0))
       rects.sort(key=lambda x: x[0] * x[1], reverse=True)
 
     def create_collide_map():
@@ -477,11 +477,11 @@ class Dungeon:
     def set_structure_position():
 
       def build_structure_map(x, y, w, h, id):
-        strc = param.structure_data[id]
+        strc = param.theme[tile.vertex]
         mg = param.house_margin
         for dy in range(h - mg[2] - mg[3]):
           for dx in range(w - mg[0] - mg[1]):
-            self.map[y + dy + mg[2]][x + dx + mg[0]][2] = strc[dy][dx]
+            self.map[y + dy + mg[2]][x + dx + mg[0]][2] = strc
 
       strc_list = []
       for i in range(len(rects)):

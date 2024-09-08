@@ -46,6 +46,7 @@ theme = {
     tile.wall: 7808,
     tile.ceil: 7424,
     tile.path: 2912,
+    tile.vertex: 1,
     tile.floor_cover[0].id: 0,
     tile.floor_cover[1].id: 0,
     tile.floor_cover[2].id: 0,
@@ -60,23 +61,13 @@ for f in tile.floor_ev:
     if f not in [tile.floor, tile.ceil]:
         theme[f] = theme[tile.ceil]
 
-structure_data = [
-    [
-        [0],
-    ],
-]
+tilegen_normal = {
+    tile.floor: [0] * 1024,
+    tile.wall: [0] * 1024,
+}
+
 
 # Constant
 TILE_PX_SIZE = 48
-
-# Map Layer Index
-# 0 = Base Tile 1
-# 1 = Base Tile 2
-# 2 = Deco Tile 1
-# 3 = Deco Tile 2
-# 4 = Shadow Tile
-# 5 = Restrict ID (Not Used)
-
-# Path
 output_path = 'output/'
 setting_path = 'settings.ini'
