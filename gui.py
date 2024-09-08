@@ -1,6 +1,8 @@
 import tkinter as tk
+from tkinter import filedialog
 from tkinter import ttk
 from PIL import Image, ImageTk
+import pickle
 
 import dungeon_maker
 import map_to_image
@@ -10,10 +12,6 @@ import setting
 import tile_crop
 import tile_rule as tile
 
-map_type_dispaly = ["Dungeon", "Cave", "Plain", "Field"]
-map_type_value = [0, 1, 2, 3]
-map_type_map = dict(zip(map_type_dispaly, map_type_value))
-output_path = param.output_path
 tileset = tile_crop.main()
 
 def validate_range(value, min_value, max_value):
@@ -34,13 +32,8 @@ def center_window(window, width, height):
 
     window.geometry(f"{width}x{height}+{x}+{y}")
 
-def mappedValue(v, a, b):
-    return int(int(a) + (float(v) / 100) * (int(b) - int(a)));
-
-def mappedValueInverse(v, a, b):
-    if (b - a) == 0:
-        return 0
-    return 100 * (v - a) / (b - a)
+def transform_dimension(v, a, b, c, d):
+    return int(c + (v - a) / (b - a) * (d - c))
 
 def boundary_check(min_val, max_val, value):
     return min(max_val, max(min_val, value))
@@ -52,7 +45,7 @@ class GUI:
         self.root = root
         self.root.title("RPG Map Generator")
         self.root.resizable(False, False)
-        center_window(root, 1500, 820)
+        center_window(root, 1500, 900)
 
         # Style
         style = ttk.Style()
@@ -78,13 +71,20 @@ class GUI:
                         borderwidth=0)   
 
 
+        # Structure
+        self.map_entry = {}
+        self.map_slider = {}
+        self.map_switch = {}
+        self.submit_active = {}
+
         # Top Side
         top_bar = tk.Frame(root, bg="lightgrey", height=50)
         top_bar.pack(side="top", fill="x")
 
-        self.submit_active = {}
         self.submit_btn = ttk.Button(top_bar, text="Generate", command=self.on_submit, style="TButton")
         self.submit_btn.pack(side=tk.LEFT)
+        ttk.Button(top_bar, text="Save", command=self.save_single_file, style="TButton").pack(side=tk.LEFT)
+        ttk.Button(top_bar, text="Load", command=self.load_single_file, style="TButton").pack(side=tk.LEFT)
 
         # Left Side
         sidebar_left = tk.Frame(root, padx=10, pady=10)
@@ -92,23 +92,15 @@ class GUI:
 
         tk.Label(sidebar_left, text="Parameters", font=("Arial", 16)).pack(pady=(0, 10))
 
-        def update_tileset_type(event):
-            def update_tree_items(parent=''):
-                children = self.tile_tree.get_children(parent)
-                for child in children:
-                    self.update_tree_button(child)
-                    update_tree_items(child)
-                    
-            update_tree_items()
+        def update_tileset_type(event):  
+            self.update_tree_items()
             param.tileset_type = self.tileset_type.get()
 
         tk.Label(sidebar_left, text="Tileset").pack(anchor=tk.W)
         self.tileset_type = tk.StringVar()
-        tileset_type_menu = ttk.Combobox(sidebar_left, textvariable=self.tileset_type, values=tile_crop.tileset_key, state="readonly")
-        if param.tileset_type in tile_crop.tileset_key:
-            tileset_type_menu.set(param.tileset_type)
-        tileset_type_menu.bind("<<ComboboxSelected>>", update_tileset_type)
-        tileset_type_menu.pack(pady=(5, 10))
+        self.tileset_type_menu = ttk.Combobox(sidebar_left, textvariable=self.tileset_type, values=tile_crop.tileset_key, state="readonly")
+        self.tileset_type_menu.bind("<<ComboboxSelected>>", update_tileset_type)
+        self.tileset_type_menu.pack(pady=(5, 10))
 
         def update_sidebar_left_sub(value):
             for i in range(4):
@@ -118,26 +110,25 @@ class GUI:
                     sidebar_left_sub[i].pack_forget()
 
         def update_map_type(event):
-            update_sidebar_left_sub(map_type_map[self.map_type.get()])
+            update_sidebar_left_sub(param.map_type_map[self.map_type.get()])
         
         self.map_type = tk.StringVar()
-        map_type_menu = ttk.Combobox(sidebar_left, textvariable=self.map_type, values=map_type_dispaly, state="readonly")
-        map_type_menu.set(map_type_dispaly[boundary_check(0, 3, param.map_type)])
-        map_type_menu.bind("<<ComboboxSelected>>", update_map_type)
-        map_type_menu.pack(pady=(5, 10))
+        self.map_type_menu = ttk.Combobox(sidebar_left, textvariable=self.map_type, values=param.map_type_dispaly, state="readonly")
+        self.map_type_menu.bind("<<ComboboxSelected>>", update_map_type)
+        self.map_type_menu.pack(pady=(5, 10))
 
-        self.tileset_id = self.create_number_field(sidebar_left, "Tileset ID", 0, 9999, param.tileset_id)
-        self.map_id = self.create_number_field(sidebar_left, "Map ID", 0, 9999, param.map_id)
-        self.map_width = self.create_number_field(sidebar_left, "Map Width", 10, 300, param.map_width)
-        self.map_height = self.create_number_field(sidebar_left, "Map Height", 10, 300, param.map_height)
-        self.map_padding = self.create_number_field(sidebar_left, "Map Padding", 0, 9, param.map_padding)
-        self.wall_height = self.create_number_field(sidebar_left, "Wall Height", 1, 9, param.wall_height)
-        self.deco_rate = self.create_slider(sidebar_left, "Decoration Rate", 0, 100, param.deco_rate * 100, False)
+        self.create_number_field(sidebar_left, "Tileset ID", "tileset_id")
+        self.create_number_field(sidebar_left, "Map ID", "map_id")
+        self.create_number_field(sidebar_left, "Map Width", "map_width")
+        self.create_number_field(sidebar_left, "Map Height", "map_height")
+        self.create_number_field(sidebar_left, "Map Padding", "map_padding")
+        self.create_number_field(sidebar_left, "Wall Height", "wall_height")
+        self.create_slider(sidebar_left, "Decoration Rate", "deco_rate", False)
         ttk.Separator(sidebar_left, orient='horizontal').pack(fill='x', pady=(10, 0))
         
         tk.Label(sidebar_left, text="Graph", font=("Arial", 12)).pack()
-        self.house_num = self.create_number_field(sidebar_left, "Number of Vertex", 0, 15, param.house_num)
-        self.path_random_factor = self.create_slider(sidebar_left, "Edge Randomness", 0, 5, param.path_random_factor, False)
+        self.create_number_field(sidebar_left, "Number of Vertex", "house_num")
+        self.create_slider(sidebar_left, "Edge Randomness", "path_random_factor", False)
         ttk.Separator(sidebar_left, orient='horizontal').pack(fill='x', pady=(10, 0))
 
         sidebar_left_sub_base = tk.Frame(sidebar_left)
@@ -148,26 +139,19 @@ class GUI:
         sidebar_left_sub[0].pack()
         
         tk.Label(sidebar_left_sub[0], text="Dungeon", font=("Arial", 12)).pack()
-        room_size_limit = min(param.map_width, param.map_height) - param.map_padding
-        var_room_min_size = mappedValueInverse(param.room_min_size, 4, room_size_limit) * 4
-        var_room_max_size = mappedValueInverse(param.room_max_size, 4, room_size_limit) * 4
-        var_room_padding = mappedValueInverse(param.room_padding, 0, param.room_min_size // 2)
-        var_corridor_wide = mappedValueInverse(param.corridor_wide, 1, (param.room_min_size - param.wall_height) // 2)
-        self.room_min_size, self.room_max_size = self.create_range_slider(sidebar_left_sub[0], "Room Min Size", "Room Max Size", 0, 100, var_room_min_size, var_room_max_size, False)
-        self.room_padding = self.create_slider(sidebar_left_sub[0], "Room Padding", 0, 100, var_room_padding, False)
-        self.corridor_wide_auto = self.create_switch(sidebar_left_sub[0], "Auto Corridor Wide", False)
-        self.corridor_wide = self.create_slider(sidebar_left_sub[0], "Corridor Wide", 0, 100, var_corridor_wide, False)
-        self.room_freq = self.create_slider(sidebar_left_sub[0], "Room Frequency", 0, 100, param.room_freq * 100, False)
+        self.create_range_slider(sidebar_left_sub[0], "Room Min Size", "Room Max Size", "room_min_size", "room_max_size")
+        self.create_slider(sidebar_left_sub[0], "Room Padding", "room_padding", False)
+        self.create_switch(sidebar_left_sub[0], "Auto Corridor Wide", "corridor_wide_auto")
+        self.create_slider(sidebar_left_sub[0], "Corridor Wide", "corridor_wide", False)
+        self.create_slider(sidebar_left_sub[0], "Room Frequency", "room_freq", False)
 
         tk.Label(sidebar_left_sub[1], text="Cave", font=("Arial", 12)).pack()
-        self.wall_probability = self.create_slider(sidebar_left_sub[1], "Wall Frequency", 400, 600, param.wall_probability * 1000, False)
-        self.cellular_iterations = self.create_slider(sidebar_left_sub[1], "Terrain Smoothness", 1, 10, param.cellular_iterations, False)
+        self.create_slider(sidebar_left_sub[1], "Wall Frequency", "wall_probability", False)
+        self.create_slider(sidebar_left_sub[1], "Terrain Smoothness", "cellular_iterations", False)
         
         tk.Label(sidebar_left_sub[3], text="Field", font=("Arial", 12)).pack()
-        self.perlin_scale = self.create_slider(sidebar_left_sub[3], "Terrain Complexity", 50, 200, param.perlin_scale, False)
-        self.elevation_level = self.create_slider(sidebar_left_sub[3], "Elevation Level", 0, 3, param.elevation_level)
-
-        update_sidebar_left_sub(map_type_map[self.map_type.get()])
+        self.create_slider(sidebar_left_sub[3], "Terrain Complexity", "perlin_scale", False)
+        self.create_slider(sidebar_left_sub[3], "Elevation Level", "elevation_level")
 
         # Right
         sidebar_right = tk.Frame(root, padx=10, pady=10)
@@ -235,6 +219,8 @@ class GUI:
         self.result_image = tk.Label(main_content, font=("Arial", 12), text="Press generate button to create map!")
         self.result_image.pack(fill=tk.BOTH, expand=True)
 
+        self.update_UI()
+
     def update_submit_btn_active(self):
         self.submit_btn.config(state=("normal" if all(self.submit_active.values()) else "disabled"))
 
@@ -246,16 +232,19 @@ class GUI:
             photo = ImageTk.PhotoImage(Image.new('RGBA', (param.TILE_PX_SIZE, param.TILE_PX_SIZE), (0, 0, 0, 0)))
         return photo
 
-    def create_switch(self, parent, label, default_val):
+    def create_switch(self, parent, label, key):
         frame = tk.Frame(parent)
         frame.pack(pady=(15, 0))
         tk.Label(frame, text=label).pack(anchor=tk.W)
-        switch = tk.BooleanVar(value=default_val)
-        checkbutton = ttk.Checkbutton(frame, variable=switch)
+        switch = tk.BooleanVar()
+        checkbutton = tk.Checkbutton(frame, variable=switch)
         checkbutton.pack()
+        self.map_switch[key] = switch
         return switch
 
-    def create_number_field(self, parent, label, min_val, max_val, default_val):
+    def create_number_field(self, parent, label, key):
+        min_val, max_val = param.boundary[key]()
+
         def on_validate_input(*args):
             value = entry_var.get()
             if validate_range(value, min_val, max_val):
@@ -271,32 +260,34 @@ class GUI:
         frame = tk.Frame(parent)
         frame.pack(pady=(10, 0), fill="x")
         tk.Label(frame, text=label).pack(anchor=tk.W, side="left")
+        
         entry_var = tk.StringVar()
         entry_var.trace_add("write", on_validate_input)
         entry = tk.Entry(frame, textvariable=entry_var, width=8)
-        entry.insert(0, boundary_check(min_val, max_val, default_val))
         entry.pack(side="right")
+        
+        self.map_entry[key] = entry
         self.submit_active[label] = True
         return entry
+        
 
-    def create_slider(self, parent, label, min_val, max_val, default_val, showvalue=True):
-        default_val = boundary_check(min_val, max_val, default_val)
+    def create_slider(self, parent, label, key, showvalue=True):
         frame = tk.Frame(parent)
         frame.pack(pady=(10, 0))
         tk.Label(frame, text=label).pack(anchor=tk.W)
-        slider = ttk.Scale(frame, from_=min_val, to=max_val, orient=tk.HORIZONTAL, style="TScale")
-        slider.set(default_val)
+        slider = ttk.Scale(frame, from_=0, to=100, orient=tk.HORIZONTAL, style="TScale")
         slider.pack(side='right')
-        slider_label = tk.Label(frame, text=default_val)
+        slider_label = tk.Label(frame)
         if showvalue:
             slider_label.pack(side='right')
             
         def update_label(value):
             slider_label.config(text=int(float(value)))
         slider.config(command=update_label)
+        self.map_slider[key] = slider
         return slider
 
-    def create_range_slider(self, parent, label1, label2, min_val, max_val, default_val1, default_val2, showvalue=True):
+    def create_range_slider(self, parent, label1, label2, key1, key2):
         def on_min_scale_change(value):
             v1, v2 = (int(slider1.get()), int(slider2.get()))
             if v1 > v2:
@@ -307,8 +298,8 @@ class GUI:
             if v1 > v2:
                 slider1.set(v2)
             
-        slider1 = self.create_slider(parent, label1, min_val, max_val, default_val1, showvalue)
-        slider2 = self.create_slider(parent, label2, min_val, max_val, default_val2, showvalue)
+        slider1 = self.create_slider(parent, label1, key1, False)
+        slider2 = self.create_slider(parent, label2, key2, False)
         slider1.config(command=on_min_scale_change)
         slider2.config(command=on_max_scale_change)
         return (slider1, slider2)
@@ -380,6 +371,12 @@ class GUI:
         new_window.grid_rowconfigure(0, weight=1)
         new_window.grid_columnconfigure(0, weight=1)
 
+    def update_tree_items(self, parent=''):
+        children = self.tile_tree.get_children(parent)
+        for child in children:
+            self.update_tree_button(child)
+            self.update_tree_items(child)
+
     def update_tree_button(self, tile_key):
         adder = 0 if tile_key == str(tile.wall) or param.theme[int(tile_key)] < 2048 else 47
         photo = self.get_tile_image(param.theme[int(tile_key)] + adder)
@@ -413,38 +410,74 @@ class GUI:
         self.result_image.image=""
         root.update()
 
-        setParam('map_type', map_type_map[self.map_type.get()])
-        setParam('tileset_id', int(self.tileset_id.get()))
-        setParam('map_id', int(self.map_id.get()))
-        setParam('map_width', int(self.map_width.get()))
-        setParam('map_height', int(self.map_height.get()))
-        setParam('map_padding', int(self.map_padding.get()))
-        setParam('wall_height', int(self.wall_height.get()))
-        setParam('deco_rate', float(self.deco_rate.get()) / 100)
-        
-        room_size_limit = min(param.map_width, param.map_height) - param.map_padding
-        setParam('room_min_size', mappedValue(self.room_min_size.get() // 4, 4, room_size_limit))
-        setParam('room_max_size', mappedValue(self.room_max_size.get() // 4, 4, room_size_limit))
-        setParam('room_padding', mappedValue(self.room_padding.get(), 0, param.room_min_size // 2))
-        setParam('corridor_wide_auto', bool(self.corridor_wide_auto.get()))
-        setParam('corridor_wide', mappedValue(self.corridor_wide.get(), 1, (param.room_min_size - param.wall_height) // 2))
-        setParam('room_freq', float(self.room_freq.get()) / 100)
+        setParam('tileset_type', self.tileset_type.get())
+        setParam('map_type', param.map_type_map[self.map_type.get()])
 
-        setParam('wall_probability', float(self.wall_probability.get()) / 1000)
-        setParam('cellular_iterations', int(self.cellular_iterations.get()))
+        for key, entry in self.map_entry.items():
+            setParam(key, int(entry.get()))
 
-        setParam('path_random_factor', int(self.path_random_factor.get()))
-        setParam('house_num', int(self.house_num.get()))
-        
-        setParam('perlin_scale', int(self.perlin_scale.get()))
-        setParam('elevation_level', int(self.elevation_level.get()))
+        for key, slider in self.map_slider.items():
+            min_val, max_val = param.boundary[key]()
+            setParam(key, transform_dimension(int(slider.get()), 0, 100, min_val, max_val))
+            
+        for key, switch in self.map_switch.items():
+            setParam(key, switch.get())
 
         dungeon = dungeon_maker.main()
-        img_path = map_to_image.main(dungeon.map, tileset[self.tileset_type.get()], param.map_id, output_path)
-        map_to_json.main(dungeon.map, param.tileset_id, param.map_id, output_path)
+        img_path = map_to_image.main(dungeon.map, tileset[param.tileset_type], param.map_id, param.output_path)
+        map_to_json.main(dungeon.map, param.tileset_id, param.map_id, param.output_path)
 
         self.update_dungeon_image(img_path)
         setting.save_ini()
+        
+    def update_UI(self):
+        if param.tileset_type in tile_crop.tileset_key:
+            self.tileset_type_menu.set(param.tileset_type)
+        self.map_type_menu.set(param.map_type_dispaly[boundary_check(0, 3, param.map_type)])
+            
+        for key, entry in self.map_entry.items():
+            min_val, max_val = param.boundary[key]()
+            val = getattr(param, key)
+            entry.delete(0, tk.END)
+            entry.insert(0, boundary_check(min_val, max_val, val))
+
+        for key, slider in self.map_slider.items():
+            min_val, max_val = param.boundary[key]()
+            val = getattr(param, key)
+            slider.set(transform_dimension(boundary_check(min_val, max_val, val), min_val, max_val, 0, 100))
+        
+        for key, switch in self.map_switch.items():
+            val = getattr(param, key)
+            switch.set(val)
+
+        self.update_tree_items()
+        self.update_submit_btn_active()
+
+    def save_single_file(self):
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".bin",
+            initialfile="save.bin",
+            filetypes=[("All files", "*.*")],
+            title="Save file"
+        )
+
+        if file_path:
+            data = {k: v for k, v in param.__dict__.items() if not k.startswith("__") and not callable(v) and not isinstance(v, type(param))}
+            del data['boundary']
+            with open(file_path, 'wb') as f:
+                pickle.dump(data, f)
+            
+    def load_single_file(self):
+        file_path = filedialog.askopenfilename(
+            filetypes=[("All files", "*.*")],
+            title="Open a file"
+        )
+
+        if file_path:
+            with open(file_path, 'rb') as f:
+                data = pickle.load(f)
+            param.__dict__.update(data)
+            self.update_UI()
 
 
 root = tk.Tk()

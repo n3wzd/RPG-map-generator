@@ -97,7 +97,7 @@ class Dungeon:
 
       if (space_width <= space_max_width and space_height <= space_max_height
           and random.random() < define_separator_per(x1, y1, x2, y2)
-          and random.random() < param.room_freq):
+          and random.random() < (param.room_freq / 100)):
         generate_room(x1, y1, x2, y2)
         return
 
@@ -198,10 +198,10 @@ class Dungeon:
     mp = param.map_padding + 1
 
     def initialize():
-      for y in range(mp, param.map_height - mp - param.wall_height):
+      for y in range(mp + param.wall_height, param.map_height - mp):
         for x in range(mp, param.map_height - mp):
           self.bmap[y][x][0] = (tile.blank if random.random()
-                                < param.wall_probability else tile.floor)
+                                < (param.wall_probability / 100) else tile.floor)
 
     def count_wall(x, y):
       cnt = 0
@@ -220,7 +220,7 @@ class Dungeon:
       for _ in range(param.cellular_iterations):
         new_map = [[tile.blank for _ in range(param.map_width)]
                    for _ in range(param.map_height)]
-        for y in range(mp, param.map_height - mp):
+        for y in range(mp + param.wall_height, param.map_height - mp):
           for x in range(mp, param.map_height - mp):
             cnt = count_wall(x, y)
             if self.bmap[y][x][0] == tile.blank:
@@ -963,17 +963,17 @@ class Dungeon:
             tile.wall: [],
         }
 
-        for index, prob_value in enumerate(tile.gen_normal[tile.floor]):
+        for index, prob_value in enumerate(param.tilegen_normal[tile.floor]):
           if prob_value > 0:
             new_gen[tile.floor].append(Prob(target=index, prob=prob_value))
         
-        for index, prob_value in enumerate(tile.gen_normal[tile.wall]):
+        for index, prob_value in enumerate(param.tilegen_normal[tile.wall]):
           if prob_value > 0:
             new_gen[tile.wall].append(Prob(target=index, prob=prob_value))
 
         return new_gen
 
-    gen_deco = convert_to_prob_structure(tile.gen_normal)
+    gen_deco = convert_to_prob_structure(param.tilegen_normal)
     gen_deco_len = {
         tile.floor: len(gen_deco[tile.floor]) + 1,
         tile.wall: len(gen_deco[tile.wall]) + 1,
@@ -987,7 +987,7 @@ class Dungeon:
 
       for cond in gen_deco.get(tile_basic, []):
         if (self.map[y][x][tile.layer_data[cond.target]] == tile.transparent
-            and random.random() < cond.prob / 10 / gen_deco_len[tile_basic] * param.deco_rate):
+            and random.random() < cond.prob / 10 / gen_deco_len[tile_basic] * (param.deco_rate / 100)):
           tiles.append(cond)
       return tiles
 
