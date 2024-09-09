@@ -1,5 +1,25 @@
 # RPG Map Generator
 
+> Application for generating RPG maps.
+
+![example](example.png)
+
+- 4 types of map generation:
+    - Dungeon: Uses BSP
+    - Cave: Uses Cellular Automata
+    - Plains
+    - Nature: Uses Simplex Noise
+- Graph path generation: Uses A* algorithm
+- Tile theme selection
+- Random area tile placement (e.g., water, carpet)
+- Random decorative tile placement (floor, wall)
+- Export to JSON and PNG files
+    - Compatible with `RPG Maker MV`
+- Save & Load parameter settings
+
+
+# RPG Map Generator
+
 > RPG 맵을 생성하는 애플리케이션입니다.
 
 ![example](example.png)
@@ -14,7 +34,7 @@
 - 무작위 영역 타일 배치 (예: 물, 카펫)
 - 무작위 장식 타일 배치 (바닥, 벽)
 - json, png 파일 다운로드
-	- RPG Maker MV와 호환됩니다.
+	- `RPG Maker MV`와 호환됩니다.
 - 파라미터 세팅 세이브 & 로드
 
 ## Stack
