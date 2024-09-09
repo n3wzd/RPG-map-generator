@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk
+import os
 from PIL import Image, ImageTk
 import pickle
 
@@ -436,6 +437,9 @@ class GUI:
             
         for key, switch in self.map_switch.items():
             setParam(key, switch.get())
+
+        if not os.path.exists(param.output_path):
+            os.makedirs(param.output_path)
 
         self.dungeon = dungeon_maker.main()
         img_path = map_to_image.main(self.dungeon.map, tileset[param.tileset_type], param.map_id, param.output_path)
