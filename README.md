@@ -17,6 +17,9 @@
     - Compatible with `RPG Maker MV`
 - Save & Load parameter settings
 
+## Stack
+- Python
+
 
 # RPG Map Generator
 
