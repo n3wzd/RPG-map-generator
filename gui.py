@@ -33,6 +33,8 @@ def center_window(window, width, height):
     window.geometry(f"{width}x{height}+{x}+{y}")
 
 def transform_dimension(v, a, b, c, d):
+    if (b - a) * (d - c) == 0:
+        return 0
     return int(c + (v - a) / (b - a) * (d - c))
 
 def boundary_check(min_val, max_val, value):
@@ -201,7 +203,10 @@ class GUI:
         def on_tree_item_click(event):
             item_id = self.tile_tree.identify_row(event.y)
             if item_id != "" and event.x > 20:
-                self.open_tile_selection_window(self.tile_tree.item(item_id, "values")[0], item_id)
+                if item_id == str(tile.vertex):
+                    self.open_tile_selection_window(self.tile_tree.item(item_id, "values")[0], item_id, False, True)
+                else:
+                    self.open_tile_selection_window(self.tile_tree.item(item_id, "values")[0], item_id)
 
         self.tile_tree.bind("<Button-3>", on_tree_right_click)
         self.tile_tree.bind("<Button-1>", on_tree_item_click)
@@ -214,7 +219,7 @@ class GUI:
         def on_decotree_item_click(event):
             item_id = self.decotile_tree.identify_row(event.y)
             if item_id != "":
-                self.open_tile_selection_window(self.decotile_tree.item(item_id, "values"), 0, True, int(item_id))
+                self.open_tile_selection_window(self.decotile_tree.item(item_id, "values"), 0, True, True, int(item_id))
 
         self.decotile_tree.bind("<Button-1>", on_decotree_item_click)
 
@@ -310,10 +315,11 @@ class GUI:
         slider2.config(command=on_max_scale_change)
         return (slider1, slider2)
 
-    def open_tile_selection_window(self, title, tile_key, is_deco=False, tile_target=0):
+    def open_tile_selection_window(self, title, tile_key, is_deco=False, is_B=False, tile_target=0):
+        is_B = True if is_deco else is_B
         grid_width = 8
-        grid_height = 64 if is_deco else 16
-        tile_const = 0 if is_deco else 2048
+        grid_height = 64 if is_B else 16
+        tile_const = 0 if is_B else 2048
 
         new_window = tk.Toplevel(root)
         new_window.title(title)
@@ -356,19 +362,21 @@ class GUI:
             tile_adder = 0 if tile_key == str(tile.wall) else 47
 
             def on_tile_click(row, col):
-                param.theme[int(tile_key)] = tile_const + 48 * (col + row * grid_width)
+                tile_id = tile_const + (1 if is_B else 48) * (col + row * grid_width)
+                param.theme[int(tile_key)] = tile_id
                 self.update_tree_button(tile_key)
                 new_window.destroy()
 
             for row in range(grid_height):
                 row_tiles = []
                 for col in range(grid_width):
-                    photo = self.get_tile_image(tile_const + 48 * (col + row * grid_width) + tile_adder)
+                    tile_id = tile_const + (col + row * grid_width) if is_B else tile_const + 48 * (col + row * grid_width) + tile_adder
+                    photo = self.get_tile_image(tile_id)
                     tile_button = tk.Button(scrollable_frame, image=photo, relief="flat", command=lambda r=row, c=col: on_tile_click(r, c), bg="lightgrey")
                     tile_button.grid(row=row_cnt, column=col)
                     tile_button.image = photo
                 
-                if wall_row[row] == int(tile_key == str(tile.wall)):
+                if is_B or wall_row[row] == int(tile_key == str(tile.wall)):
                     row_cnt += 1
 
         scrollable_frame.update_idletasks()
