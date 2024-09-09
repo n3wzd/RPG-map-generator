@@ -55,7 +55,7 @@ class GUI:
         style.configure("TButton",
                         background="#333333",
                         foreground="white",
-                        font=("Arial", 16),
+                        font=("Arial", 14),
                         borderwidth=2,
                         focusthickness=3,
                         focuscolor="none",
@@ -72,19 +72,23 @@ class GUI:
 
 
         # Structure
+        self.dungeon = None
         self.map_entry = {}
         self.map_slider = {}
         self.map_switch = {}
         self.submit_active = {}
+        self.submit_active['tileset_type'] = True if param.tileset_type != "" else False
 
         # Top Side
         top_bar = tk.Frame(root, bg="lightgrey", height=50)
         top_bar.pack(side="top", fill="x")
 
-        self.submit_btn = ttk.Button(top_bar, text="Generate", command=self.on_submit, style="TButton")
+        self.submit_btn = ttk.Button(top_bar, text="Generate Map", command=self.on_submit, style="TButton")
         self.submit_btn.pack(side=tk.LEFT)
-        ttk.Button(top_bar, text="Save", command=self.save_single_file, style="TButton").pack(side=tk.LEFT)
-        ttk.Button(top_bar, text="Load", command=self.load_single_file, style="TButton").pack(side=tk.LEFT)
+        ttk.Button(top_bar, text="Download JSON", command=self.download_json, style="TButton").pack(side=tk.LEFT)
+        ttk.Button(top_bar, text="Download PNG", command=self.download_png, style="TButton").pack(side=tk.LEFT)
+        ttk.Button(top_bar, text="Export Setting", command=self.save_single_file, style="TButton").pack(side=tk.LEFT)
+        ttk.Button(top_bar, text="Import Setting", command=self.load_single_file, style="TButton").pack(side=tk.LEFT)
 
         # Left Side
         sidebar_left = tk.Frame(root, padx=10, pady=10)
@@ -95,6 +99,8 @@ class GUI:
         def update_tileset_type(event):  
             self.update_tree_items()
             param.tileset_type = self.tileset_type.get()
+            self.submit_active['tileset_type'] = True if param.tileset_type != "" else False
+            self.update_submit_btn_active()
 
         tk.Label(sidebar_left, text="Tileset").pack(anchor=tk.W)
         self.tileset_type = tk.StringVar()
@@ -423,9 +429,9 @@ class GUI:
         for key, switch in self.map_switch.items():
             setParam(key, switch.get())
 
-        dungeon = dungeon_maker.main()
-        img_path = map_to_image.main(dungeon.map, tileset[param.tileset_type], param.map_id, param.output_path)
-        map_to_json.main(dungeon.map, param.tileset_id, param.map_id, param.output_path)
+        self.dungeon = dungeon_maker.main()
+        img_path = map_to_image.main(self.dungeon.map, tileset[param.tileset_type], param.map_id, param.output_path)
+        map_to_json.main(self.dungeon.map, param.tileset_id, param.map_id, param.output_path)
 
         self.update_dungeon_image(img_path)
         setting.save_ini()
@@ -452,6 +458,18 @@ class GUI:
 
         self.update_tree_items()
         self.update_submit_btn_active()
+
+    def download_png(self):
+        if self.dungeon:
+            selected_directory = filedialog.askdirectory()
+            if selected_directory:
+                map_to_image.main(self.dungeon.map, tileset[param.tileset_type], param.map_id, selected_directory + '/')
+
+    def download_json(self):
+        if self.dungeon:
+            selected_directory = filedialog.askdirectory()
+            if selected_directory:
+                map_to_json.main(self.dungeon.map, param.tileset_id, param.map_id, selected_directory + '/')
 
     def save_single_file(self):
         file_path = filedialog.asksaveasfilename(
